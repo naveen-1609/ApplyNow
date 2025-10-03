@@ -88,7 +88,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
             </DialogHeader>
             <div className="py-4">
                 <Label htmlFor="resume-text" className="sr-only">Resume Text</Label>
-                <Textarea id="resume-text" value={editableText} onChange={(e) => setEditableText(e.target.value)} className="min-h-80" />
+                <Textarea id="resume-text" value={editableText} onChange={(e) => setEditableText(e.target.value)} className="min-h-[60vh] font-code" />
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>

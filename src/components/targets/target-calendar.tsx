@@ -32,13 +32,15 @@ export function TargetCalendar() {
 
   const getDayStatus = (day: Date): 'green' | 'yellow' | 'red' | 'gray' => {
     const today = new Date();
+    today.setHours(0,0,0,0);
     if (day > today) return 'gray';
     
     const dayString = format(day, 'yyyy-MM-dd');
     const record = mockTarget.history.find(h => h.date === dayString);
     const applicationsDone = record ? record.applications_done : 0;
     
-    if (applicationsDone === 0) return 'red';
+    if (applicationsDone === 0 && day < today) return 'red';
+    if (applicationsDone === 0 && day.getTime() === today.getTime()) return 'gray';
     if (applicationsDone >= mockTarget.daily_target) return 'green';
     return 'yellow';
   };
@@ -82,7 +84,7 @@ export function TargetCalendar() {
             return (
           <div key={day.toString()} className={cn("relative h-20 rounded-md p-2 flex flex-col justify-between items-end", getStatusColorClass(status))}>
             <div className="font-bold self-start">{format(day, 'd')}</div>
-            {record && <Badge variant="secondary" className="font-mono">{`${record.applications_done}/${mockTarget.daily_target}`}</Badge>}
+            {record && record.applications_done > 0 && <Badge variant="secondary" className="font-mono">{`${record.applications_done}/${mockTarget.daily_target}`}</Badge>}
           </div>
         )})}
       </div>

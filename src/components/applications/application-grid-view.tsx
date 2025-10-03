@@ -16,11 +16,11 @@ import { Button } from '../ui/button';
 import { ExternalLink } from 'lucide-react';
 
 const statusStyles: Record<JobApplicationStatus, string> = {
-  Applied: 'border-blue-500/50 bg-blue-500/10 text-blue-700 dark:text-blue-400',
-  Interviewing: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
-  Offer: 'border-green-500/50 bg-green-500/10 text-green-700 dark:text-green-400',
-  Rejected: 'border-red-500/50 bg-red-500/10 text-red-700 dark:text-red-400',
-  Ghosted: 'border-gray-500/50 bg-gray-500/10 text-gray-700 dark:text-gray-400',
+    Applied: 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300',
+    Interviewing: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-300',
+    Offer: 'border-green-500/50 bg-green-500/10 text-green-300',
+    Rejected: 'border-red-500/50 bg-red-500/10 text-red-300',
+    Ghosted: 'border-gray-500/50 bg-gray-500/10 text-gray-400',
 };
 
 function ApplicationCard({ application, onCardClick }: { application: JobApplication, onCardClick: (app: JobApplication) => void; }) {

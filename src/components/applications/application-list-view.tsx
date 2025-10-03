@@ -25,12 +25,13 @@ import { mockJobApplications, mockResumes } from '@/lib/mock-data';
 import type { JobApplication, JobApplicationStatus } from '@/lib/types';
 
 const statusStyles: Record<JobApplicationStatus, string> = {
-  Applied: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300',
-  Interviewing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300',
-  Offer: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',
-  Rejected: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300',
-  Ghosted: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300',
+    Applied: 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300',
+    Interviewing: 'border-yellow-500/50 bg-yellow-500/10 text-yellow-300',
+    Offer: 'border-green-500/50 bg-green-500/10 text-green-300',
+    Rejected: 'border-red-500/50 bg-red-500/10 text-red-300',
+    Ghosted: 'border-gray-500/50 bg-gray-500/10 text-gray-400',
 };
+
 
 export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) => void; }) {
   // In a real app, this state would be managed by a library like TanStack Table

@@ -134,7 +134,7 @@ export function AtsCheckerTool() {
         <CardContent className="space-y-4">
           <Textarea
             placeholder="Paste the job description here..."
-            className="min-h-60"
+            className="min-h-60 font-code"
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             disabled={isLoading}
@@ -202,12 +202,12 @@ export function AtsCheckerTool() {
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden">
                     <ScrollArea className="h-full pr-4" ref={chatContainerRef}>
-                        <div className="space-y-4">
+                        <div className="space-y-4 font-code">
                         {chatHistory.map((msg, index) => (
                             <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : ''}`}>
                                 {msg.role === 'model' && <Bot className="w-6 h-6 text-primary flex-shrink-0"/>}
                                 <div className={`p-3 rounded-lg max-w-[80%] ${msg.role === 'model' ? 'bg-muted' : 'bg-primary text-primary-foreground'}`}>
-                                    <p className="text-sm">{msg.content}</p>
+                                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                                 </div>
                                 {msg.role === 'user' && <UserIcon className="w-6 h-6 text-muted-foreground flex-shrink-0"/>}
                             </div>
@@ -232,6 +232,7 @@ export function AtsCheckerTool() {
                             onChange={(e) => setUserMessage(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
                             disabled={isChatting}
+                            className="font-code"
                         />
                         <Button type="submit" size="icon" onClick={handleSendMessage} disabled={isChatting || !userMessage.trim()}>
                             <Send className="h-4 w-4" />
