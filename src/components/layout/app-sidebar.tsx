@@ -23,7 +23,7 @@ import {
   LogOut,
   ScanSearch,
 } from 'lucide-react';
-import { mockUser } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -36,6 +36,9 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user, signOut } = useAuth();
+
+  if (!user) return null;
 
   return (
     <Sidebar>
@@ -66,14 +69,14 @@ export function AppSidebar() {
       <SidebarFooter>
         <div className="flex items-center gap-2">
           <Avatar className="h-8 w-8">
-            <AvatarImage src={`https://avatar.vercel.sh/${mockUser.email}.png`} alt={mockUser.name} />
-            <AvatarFallback>{mockUser.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={user.photoURL ?? ''} alt={user.displayName ?? 'User'} />
+            <AvatarFallback>{user.displayName?.charAt(0) ?? 'U'}</AvatarFallback>
           </Avatar>
-          <div className="flex flex-col">
-            <span className="text-sm font-semibold">{mockUser.name}</span>
-            <span className="text-xs text-muted-foreground">{mockUser.email}</span>
+          <div className="flex flex-col overflow-hidden">
+            <span className="text-sm font-semibold truncate">{user.displayName}</span>
+            <span className="text-xs text-muted-foreground truncate">{user.email}</span>
           </div>
-          <SidebarMenuButton variant="ghost" size="sm" className="ml-auto group-data-[collapsible=icon]:hidden">
+          <SidebarMenuButton variant="ghost" size="sm" className="ml-auto group-data-[collapsible=icon]:hidden" onClick={signOut}>
             <LogOut />
           </SidebarMenuButton>
         </div>

@@ -1,5 +1,7 @@
+'use client';
+
 import { PageHeader } from '@/components/shared/page-header';
-import { mockJobApplications, mockUser } from '@/lib/mock-data';
+import { mockJobApplications } from '@/lib/mock-data';
 import { KpiCard } from '@/components/dashboard/kpi-card';
 import {
   Briefcase,
@@ -9,8 +11,10 @@ import {
 } from 'lucide-react';
 import { ApplicationsOverTimeChart } from '@/components/dashboard/applications-over-time-chart';
 import { StatusBreakdownChart } from '@/components/dashboard/status-breakdown-chart';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const totalApplications = mockJobApplications.length;
   const totalInterviews = mockJobApplications.filter(
     (app) => app.status === 'Interviewing' || app.status === 'Offer'
@@ -22,10 +26,12 @@ export default function DashboardPage() {
     (app) => app.status === 'Rejected'
   ).length;
 
+  const displayName = user?.displayName?.split(' ')[0] || 'there';
+
   return (
     <div className="space-y-8">
       <PageHeader
-        title={`Welcome back, ${mockUser.name.split(' ')[0]}!`}
+        title={`Welcome back, ${displayName}!`}
         description="Here's a snapshot of your job search progress."
       />
 
