@@ -21,6 +21,7 @@ import {
   Target,
   Settings,
   LogOut,
+  ScanSearch,
 } from 'lucide-react';
 import { mockUser } from '@/lib/mock-data';
 
@@ -28,6 +29,7 @@ const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/applications', icon: Briefcase, label: 'Applications' },
   { href: '/resumes', icon: FileText, label: 'Resumes' },
+  { href: '/ats-checker', icon: ScanSearch, label: 'ATS Checker' },
   { href: '/targets', icon: Target, label: 'Targets' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
@@ -49,7 +51,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.href}>
               <Link href={item.href} legacyBehavior passHref>
                 <SidebarMenuButton
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href)}
                   tooltip={item.label}
                 >
                   <item.icon />

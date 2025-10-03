@@ -9,8 +9,6 @@ import {
 } from 'lucide-react';
 import { ApplicationsOverTimeChart } from '@/components/dashboard/applications-over-time-chart';
 import { StatusBreakdownChart } from '@/components/dashboard/status-breakdown-chart';
-import { AiPredictionTool } from '@/components/dashboard/ai-prediction-tool';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DashboardPage() {
   const totalApplications = mockJobApplications.length;
@@ -65,9 +63,6 @@ export default function DashboardPage() {
         <StatusBreakdownChart />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <AiPredictionTool />
-      </div>
     </div>
   );
 }
