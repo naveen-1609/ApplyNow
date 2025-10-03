@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -21,8 +21,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
-import { mockJobApplications, mockResumes } from '@/lib/mock-data';
-import type { JobApplication, JobApplicationStatus } from '@/lib/types';
+import { getResumes } from '@/lib/services/resumes';
+import { useAuth } from '@/hooks/use-auth';
+import type { JobApplication, JobApplicationStatus, Resume } from '@/lib/types';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const statusStyles: Record<JobApplicationStatus, string> = {
     Applied: 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300',
@@ -33,12 +44,36 @@ const statusStyles: Record<JobApplicationStatus, string> = {
 };
 
 
-export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) => void; }) {
-  // In a real app, this state would be managed by a library like TanStack Table
-  const [applications, setApplications] = useState<JobApplication[]>(mockJobApplications);
+export function ApplicationListView({ applications, onEdit, onDelete }: { applications: JobApplication[], onEdit: (app: JobApplication) => void; onDelete: (jobId: string) => void }) {
+  const { user } = useAuth();
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [applicationToDelete, setApplicationToDelete] = useState<string | null>(null);
+
+  useEffect(() => {
+      const fetchResumes = async () => {
+          if (user) {
+              setResumes(await getResumes(user.uid));
+          }
+      };
+      fetchResumes();
+  }, [user]);
 
   const getResumeName = (resumeId: string) => {
-    return mockResumes.find(r => r.resume_id === resumeId)?.resume_name || 'N/A';
+    return resumes.find(r => r.resume_id === resumeId)?.resume_name || 'N/A';
+  };
+  
+  const handleDeleteClick = (jobId: string) => {
+    setApplicationToDelete(jobId);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDelete = () => {
+    if (applicationToDelete) {
+        onDelete(applicationToDelete);
+    }
+    setIsDeleteDialogOpen(false);
+    setApplicationToDelete(null);
   };
 
   return (
@@ -57,6 +92,13 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
           </TableRow>
         </TableHeader>
         <TableBody>
+          {applications.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                You haven't added any applications yet.
+              </TableCell>
+            </TableRow>
+          )}
           {applications.sort((a,b) => b.applied_date.getTime() - a.applied_date.getTime()).map((app) => (
             <TableRow key={app.job_id}>
               <TableCell className="font-medium">
@@ -84,7 +126,7 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => onEdit(app)}>View Details / Edit</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteClick(app.job_id)}>Delete</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </TableCell>
@@ -92,6 +134,21 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
           ))}
         </TableBody>
       </Table>
+       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your
+              application.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -4,8 +4,8 @@ export const ALL_STATUSES: JobApplicationStatus[] = ['Applied', 'Interviewing', 
 
 export type User = {
   user_id: string;
-  name: string;
-  email: string;
+  name: string | null;
+  email: string | null;
   created_at: Date;
 };
 
@@ -48,3 +48,12 @@ export type Schedule = {
   summary_time: string; // "HH:mm"
   email_enabled: boolean;
 };
+
+// Firestore document types
+export type JobApplicationDocument = Omit<JobApplication, 'job_id' | 'applied_date' | 'last_updated'> & {
+    applied_date: string; // ISO string
+    last_updated: string; // ISO string
+};
+
+export type CreateJobApplicationData = Omit<JobApplication, 'job_id' | 'user_id' | 'last_updated'>;
+export type UpdateJobApplicationData = Partial<Omit<JobApplication, 'job_id' | 'user_id'>>;

@@ -28,17 +28,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { mockResumes } from '@/lib/mock-data';
-import type { JobApplication, JobApplicationStatus } from '@/lib/types';
+import type { JobApplication, JobApplicationStatus, CreateJobApplicationData, UpdateJobApplicationData, Resume } from '@/lib/types';
 import { ALL_STATUSES } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { getResumes } from '@/lib/services/resumes';
+import { useAuth } from '@/hooks/use-auth';
 
 type AddApplicationSheetProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   application?: JobApplication | null;
-  onSave: (application: Omit<JobApplication, 'user_id' | 'job_id' | 'last_updated'>) => void;
+  onSave: (application: CreateJobApplicationData | UpdateJobApplicationData) => void;
 };
 
 export function AddApplicationSheet({
@@ -48,6 +49,7 @@ export function AddApplicationSheet({
   onSave,
 }: AddApplicationSheetProps) {
     const { toast } = useToast();
+    const { user } = useAuth();
     const [title, setTitle] = useState('');
     const [company, setCompany] = useState('');
     const [link, setLink] = useState('');
@@ -55,27 +57,35 @@ export function AddApplicationSheet({
     const [resumeId, setResumeId] = useState<string>();
     const [status, setStatus] = useState<JobApplicationStatus>('Applied');
     const [appliedDate, setAppliedDate] = useState<Date | undefined>(new Date());
+    const [resumes, setResumes] = useState<Resume[]>([]);
     
     useEffect(() => {
-        if (application) {
-            setTitle(application.job_title);
-            setCompany(application.company_name);
-            setLink(application.job_link);
-            setDescription(application.job_description);
-            setResumeId(application.resume_id);
-            setStatus(application.status);
-            setAppliedDate(application.applied_date);
-        } else {
-            // Reset form for new application
-            setTitle('');
-            setCompany('');
-            setLink('');
-            setDescription('');
-            setResumeId(mockResumes[0]?.resume_id);
-            setStatus('Applied');
-            setAppliedDate(new Date());
-        }
-    }, [application, isOpen]);
+        const fetchResumes = async () => {
+            if (user && isOpen) {
+                const userResumes = await getResumes(user.uid);
+                setResumes(userResumes);
+                if (application) {
+                    setTitle(application.job_title);
+                    setCompany(application.company_name);
+                    setLink(application.job_link);
+                    setDescription(application.job_description);
+                    setResumeId(application.resume_id);
+                    setStatus(application.status);
+                    setAppliedDate(application.applied_date);
+                } else {
+                    // Reset form for new application
+                    setTitle('');
+                    setCompany('');
+                    setLink('');
+                    setDescription('');
+                    setResumeId(userResumes[0]?.resume_id);
+                    setStatus('Applied');
+                    setAppliedDate(new Date());
+                }
+            }
+        };
+        fetchResumes();
+    }, [application, isOpen, user]);
 
     const handleSave = () => {
         if (!title || !company || !resumeId || !appliedDate) {
@@ -87,8 +97,17 @@ export function AddApplicationSheet({
             return;
         }
 
-        // In a real app, this would be an API call
-        console.log('Saving application...');
+        const applicationData = {
+            job_title: title,
+            company_name: company,
+            job_link: link,
+            job_description: description,
+            resume_id: resumeId,
+            status: status,
+            applied_date: appliedDate
+        };
+
+        onSave(applicationData);
         toast({
             title: 'Success!',
             description: `Application for ${title} at ${company} has been saved.`,
@@ -98,7 +117,7 @@ export function AddApplicationSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
+      <SheetContent className="sm:max-w-lg overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{application ? 'Edit Application' : 'Add New Application'}</SheetTitle>
           <SheetDescription>
@@ -124,8 +143,8 @@ export function AddApplicationSheet({
             </Label>
             <Input id="job-link" value={link} onChange={(e) => setLink(e.target.value)} className="col-span-3" />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="job-description" className="text-right">
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="job-description" className="text-right pt-2">
               Description
             </Label>
             <Textarea
@@ -144,7 +163,7 @@ export function AddApplicationSheet({
                 <SelectValue placeholder="Select a resume" />
               </SelectTrigger>
               <SelectContent>
-                {mockResumes.map((resume) => (
+                {resumes.map((resume) => (
                   <SelectItem key={resume.resume_id} value={resume.resume_id}>
                     {resume.resume_name}
                   </SelectItem>

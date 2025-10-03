@@ -14,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, FileText, Pencil, Trash2 } from 'lucide-react';
 import type { Resume } from '@/lib/types';
@@ -26,17 +27,44 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 type ResumeCardProps = {
   resume: Resume;
+  onDelete: (resumeId: string) => void;
+  onSaveText: (resumeId: string, newText: string) => void;
 };
 
-export function ResumeCard({ resume }: ResumeCardProps) {
+export function ResumeCard({ resume, onDelete, onSaveText }: ResumeCardProps) {
+    const { toast } = useToast();
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [editableText, setEditableText] = useState(resume.editable_text);
+    
+    const handleSaveChanges = () => {
+        onSaveText(resume.resume_id, editableText);
+        setIsEditOpen(false);
+        toast({ title: "Resume text updated!" });
+    };
+
+    const confirmDelete = () => {
+        onDelete(resume.resume_id);
+        setIsDeleteOpen(false);
+        toast({ title: "Resume deleted." });
+    };
 
   return (
     <>
@@ -60,7 +88,8 @@ export function ResumeCard({ resume }: ResumeCardProps) {
               <Pencil className="mr-2 h-4 w-4" />
               Edit Text
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-destructive" onClick={() => setIsDeleteOpen(true)}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
@@ -78,6 +107,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
         </Button>
       </CardFooter>
     </Card>
+
     <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
@@ -92,10 +122,25 @@ export function ResumeCard({ resume }: ResumeCardProps) {
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                <Button onClick={() => setIsEditOpen(false)}>Save Changes</Button>
+                <Button onClick={handleSaveChanges}>Save Changes</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
+    
+    <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your resume and its associated file. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

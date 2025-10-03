@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 import { subDays, format } from 'date-fns';
-import { mockJobApplications } from '@/lib/mock-data';
+import type { JobApplication } from '@/lib/types';
 
 const chartConfig = {
   applications: {
@@ -24,12 +24,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ApplicationsOverTimeChart() {
+export function ApplicationsOverTimeChart({ applications }: { applications: JobApplication[] }) {
   const data = Array.from({ length: 30 }).map((_, i) => {
     const date = subDays(new Date(), 29 - i);
     return {
       date: format(date, 'MMM d'),
-      applications: mockJobApplications.filter(
+      applications: applications.filter(
         (app) => format(app.applied_date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
       ).length,
     };

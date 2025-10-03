@@ -1,15 +1,62 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { ResumeCard } from '@/components/resumes/resume-card';
 import { UploadResumeDialog } from '@/components/resumes/upload-resume-dialog';
-import { mockResumes } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
+import { getResumes, deleteResume, updateResumeText } from '@/lib/services/resumes';
+import type { Resume } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function ResumesPage() {
+  const { user } = useAuth();
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  const fetchResumes = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const userResumes = await getResumes(user.uid);
+      setResumes(userResumes);
+    } catch (error) {
+      console.error("Failed to fetch resumes", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchResumes();
+  }, [user]);
+  
+  const handleUploadSuccess = () => {
+      fetchResumes();
+  };
+
+  const handleDeleteResume = async (resumeId: string) => {
+    if (!user) return;
+    try {
+        await deleteResume(user.uid, resumeId);
+        fetchResumes();
+    } catch (error) {
+        console.error("Failed to delete resume", error);
+    }
+  };
+  
+  const handleUpdateResumeText = async (resumeId: string, newText: string) => {
+    if (!user) return;
+    try {
+        await updateResumeText(user.uid, resumeId, newText);
+        fetchResumes();
+    } catch(error) {
+        console.error("Failed to update resume text", error);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -23,10 +70,19 @@ export default function ResumesPage() {
         </Button>
       </PageHeader>
 
-      {mockResumes.length > 0 ? (
+      {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {mockResumes.map((resume) => (
-            <ResumeCard key={resume.resume_id} resume={resume} />
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-56" />)}
+        </div>
+      ) : resumes.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {resumes.map((resume) => (
+            <ResumeCard 
+                key={resume.resume_id} 
+                resume={resume} 
+                onDelete={handleDeleteResume}
+                onSaveText={handleUpdateResumeText}
+            />
           ))}
         </div>
       ) : (
@@ -44,6 +100,7 @@ export default function ResumesPage() {
       <UploadResumeDialog
         isOpen={isUploadOpen}
         onOpenChange={setIsUploadOpen}
+        onUploadSuccess={handleUploadSuccess}
       />
     </div>
   );

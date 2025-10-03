@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { mockJobApplications } from '@/lib/mock-data';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { JobApplication, JobApplicationStatus } from '@/lib/types';
 import { Button } from '../ui/button';
@@ -50,8 +49,8 @@ function ApplicationCard({ application, onCardClick }: { application: JobApplica
     )
 }
 
-export function ApplicationGridView({ onEdit }: { onEdit: (app: JobApplication) => void; }) {
-    const groupedApps = mockJobApplications.reduce((acc, app) => {
+export function ApplicationGridView({ applications, onEdit }: { applications: JobApplication[], onEdit: (app: JobApplication) => void; }) {
+    const groupedApps = applications.reduce((acc, app) => {
         const date = format(app.applied_date, 'yyyy-MM-dd');
         if (!acc[date]) {
             acc[date] = [];
@@ -64,7 +63,9 @@ export function ApplicationGridView({ onEdit }: { onEdit: (app: JobApplication) 
 
   return (
     <div className="space-y-8">
-        {sortedGroups.map(date => (
+        {applications.length === 0 ? (
+            <p className="text-center text-muted-foreground">You haven't added any applications yet.</p>
+        ) : sortedGroups.map(date => (
             <div key={date}>
                 <h2 className="mb-4 font-semibold text-muted-foreground">{format(new Date(date), 'EEEE, MMMM d')}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

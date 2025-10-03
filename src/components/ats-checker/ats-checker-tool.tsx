@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { mockResumes } from '@/lib/mock-data';
 import { analyzeResume, chatWithResumeAssistant, AtsAnalysisOutput, ChatInput } from '@/ai/flows/ats-checker-flow';
 import { AlertCircle, Bot, Send, User as UserIcon } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
@@ -27,6 +26,10 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
+import { useAuth } from '@/hooks/use-auth';
+import type { Resume } from '@/lib/types';
+import { getResumes } from '@/lib/services/resumes';
+
 
 type ChatMessage = {
     role: 'user' | 'model';
@@ -34,8 +37,10 @@ type ChatMessage = {
 };
 
 export function AtsCheckerTool() {
+  const { user } = useAuth();
   const [jobDescription, setJobDescription] = useState('');
-  const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>(mockResumes[0]?.resume_id);
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
   const [result, setResult] = useState<AtsAnalysisOutput | null>(null);
@@ -44,6 +49,19 @@ export function AtsCheckerTool() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [userMessage, setUserMessage] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const fetchResumes = async () => {
+        if(user) {
+            const userResumes = await getResumes(user.uid);
+            setResumes(userResumes);
+            if (userResumes.length > 0) {
+                setSelectedResumeId(userResumes[0].resume_id);
+            }
+        }
+    }
+    fetchResumes();
+  }, [user]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -61,7 +79,7 @@ export function AtsCheckerTool() {
       });
       return;
     }
-    const selectedResume = mockResumes.find(r => r.resume_id === selectedResumeId);
+    const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
     if (!selectedResume) return;
 
     setIsLoading(true);
@@ -91,7 +109,8 @@ export function AtsCheckerTool() {
   const handleSendMessage = async () => {
     if (!userMessage.trim() || !selectedResumeId || !jobDescription) return;
 
-    const currentResumeText = mockResumes.find(r => r.resume_id === selectedResumeId)?.editable_text || '';
+    const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
+    if (!selectedResume) return;
 
     const newUserMessage: ChatMessage = { role: 'user', content: userMessage };
     setChatHistory(prev => [...prev, newUserMessage]);
@@ -101,7 +120,7 @@ export function AtsCheckerTool() {
     try {
         const chatInput: ChatInput = {
             jobDescription,
-            resumeText: currentResumeText,
+            resumeText: selectedResume.editable_text,
             chatHistory: [...chatHistory, newUserMessage],
             userMessage: userMessage,
         };
@@ -139,12 +158,12 @@ export function AtsCheckerTool() {
             onChange={(e) => setJobDescription(e.target.value)}
             disabled={isLoading}
           />
-          <Select onValueChange={setSelectedResumeId} defaultValue={selectedResumeId} disabled={isLoading}>
+          <Select onValueChange={setSelectedResumeId} value={selectedResumeId} disabled={isLoading || resumes.length === 0}>
             <SelectTrigger>
               <SelectValue placeholder="Select a resume" />
             </SelectTrigger>
             <SelectContent>
-              {mockResumes.map((resume) => (
+              {resumes.map((resume) => (
                 <SelectItem key={resume.resume_id} value={resume.resume_id}>
                   {resume.resume_name}
                 </SelectItem>
@@ -153,8 +172,8 @@ export function AtsCheckerTool() {
           </Select>
         </CardContent>
         <CardFooter>
-          <Button onClick={handleAnalyze} disabled={isLoading} className="w-full">
-            {isLoading ? 'Analyzing...' : 'Analyze Resume'}
+          <Button onClick={handleAnalyze} disabled={isLoading || resumes.length === 0} className="w-full">
+            {isLoading ? 'Analyzing...' : resumes.length === 0 ? 'Upload a resume first' : 'Analyze Resume'}
           </Button>
         </CardFooter>
       </Card>
