@@ -3,22 +3,26 @@ import { db } from '@/lib/firebase';
 import {
   collection,
   query,
-  where,
   getDocs,
   addDoc,
   updateDoc,
   deleteDoc,
   doc,
   Timestamp,
+  type DocumentData,
+  type QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import type { JobApplication, JobApplicationDocument, CreateJobApplicationData, UpdateJobApplicationData } from '@/lib/types';
+import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData } from '@/lib/types';
 
 const getApplicationsCollection = (userId: string) => {
-    return collection(db!, `users/${userId}/applications`);
+    if (!db) {
+        throw new Error("Firestore is not initialized. Please check your Firebase configuration.");
+    }
+    return collection(db, `users/${userId}/applications`);
 }
 
 // Function to convert Firestore document to JobApplication type
-const fromFirestore = (doc: any): JobApplication => {
+const fromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): JobApplication => {
     const data = doc.data();
     return {
         job_id: doc.id,
@@ -36,23 +40,17 @@ const fromFirestore = (doc: any): JobApplication => {
 
 // Get all applications for a user
 export const getApplications = async (userId: string): Promise<JobApplication[]> => {
-    if (!db) {
-        console.error("Firestore is not initialized.");
-        return [];
-    }
     const applicationsCol = getApplicationsCollection(userId);
     const snapshot = await getDocs(applicationsCol);
-    return snapshot.docs.map(doc => fromFirestore(doc));
+    return snapshot.docs.map(fromFirestore);
 };
 
 // Add a new job application
 export const addApplication = async (userId: string, data: CreateJobApplicationData): Promise<string> => {
-    if (!db) throw new Error("Firestore is not initialized.");
-    
     const applicationsCol = getApplicationsCollection(userId);
     const now = Timestamp.now();
     
-    const docData: JobApplicationDocument = {
+    const docData = {
         ...data,
         user_id: userId,
         applied_date: Timestamp.fromDate(data.applied_date),
@@ -69,7 +67,7 @@ export const updateApplication = async (userId: string, jobId: string, data: Upd
     
     const appDocRef = doc(db, `users/${userId}/applications`, jobId);
     
-    const updateData: Partial<JobApplicationDocument> = {
+    const updateData: { [key: string]: any } = {
         ...data,
         last_updated: Timestamp.now(),
     };

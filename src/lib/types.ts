@@ -1,3 +1,5 @@
+import type { Timestamp } from 'firebase/firestore';
+
 export type JobApplicationStatus = 'Applied' | 'Interviewing' | 'Offer' | 'Rejected' | 'Ghosted';
 
 export const ALL_STATUSES: JobApplicationStatus[] = ['Applied', 'Interviewing', 'Offer', 'Rejected', 'Ghosted'];
@@ -14,6 +16,7 @@ export type Resume = {
   user_id: string;
   resume_name: string;
   file_url: string;
+  storage_path: string;
   editable_text: string;
   created_at: Date;
 };
@@ -51,9 +54,9 @@ export type Schedule = {
 
 // Firestore document types
 export type JobApplicationDocument = Omit<JobApplication, 'job_id' | 'applied_date' | 'last_updated'> & {
-    applied_date: string; // ISO string
-    last_updated: string; // ISO string
+    applied_date: Timestamp;
+    last_updated: Timestamp;
 };
 
 export type CreateJobApplicationData = Omit<JobApplication, 'job_id' | 'user_id' | 'last_updated'>;
-export type UpdateJobApplicationData = Partial<Omit<JobApplication, 'job_id' | 'user_id'>>;
+export type UpdateJobApplicationData = Partial<Omit<JobApplication, 'job_id' | 'user_id' | 'last_updated' | 'applied_date'> & { applied_date?: Date }>;

@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     if (!auth) {
         console.error("Firebase auth is not initialized.");
-        return;
+        throw new Error("Firebase auth is not initialized.");
     }
     setLoading(true);
     const provider = new GoogleAuthProvider();
