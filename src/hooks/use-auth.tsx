@@ -11,6 +11,8 @@ import {
   onAuthStateChanged,
   GoogleAuthProvider,
   signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   User,
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
@@ -20,6 +22,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   signInWithGoogle: () => Promise<void>;
+  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -48,14 +52,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error("Firebase auth is not initialized.");
         return;
     }
+    setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
       router.push('/dashboard');
     } catch (error) {
       console.error('Error signing in with Google', error);
+      setLoading(false);
+      throw error;
     }
   };
+
+  const signUpWithEmail = async (email: string, password: string) => {
+    if (!auth) throw new Error("Firebase auth is not initialized.");
+    setLoading(true);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error signing up with email', error);
+      setLoading(false);
+      throw error;
+    }
+  }
+
+  const signInWithEmail = async (email: string, password: string) => {
+    if (!auth) throw new Error("Firebase auth is not initialized.");
+    setLoading(true);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Error signing in with email', error);
+      setLoading(false);
+      throw error;
+    }
+  }
+
 
   const signOut = async () => {
      if (!auth) {
@@ -71,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signInWithGoogle, signUpWithEmail, signInWithEmail, signOut }}>
       {children}
     </AuthContext.Provider>
   );
