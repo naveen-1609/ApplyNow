@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"PT Sans"', 'sans-serif'],
-        headline: ['"Playfair Display"', 'serif'],
+        body: ['"Space Grotesk"', 'sans-serif'],
+        headline: ['"Exo 2"', 'sans-serif'],
         code: ['"Source Code Pro"', 'monospace'],
       },
       colors: {

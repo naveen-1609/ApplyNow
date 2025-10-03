@@ -18,18 +18,21 @@ export default function LoginPage() {
   }, [user, router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center bg-background p-4 relative overflow-hidden">
+       <div className="absolute inset-0 z-0 opacity-10">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/50 to-transparent rounded-full -translate-x-1/4 -translate-y-1/4 w-[200%] h-[200%]"></div>
+      </div>
+      <Card className="w-full max-w-sm z-10 bg-background/80 backdrop-blur-sm border-primary/20">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
-            <Logo className="h-12 w-12" />
+            <Logo className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="font-headline text-2xl">Welcome to CareerPilot</CardTitle>
+          <CardTitle className="font-headline text-3xl text-primary">Welcome to CareerPilot</CardTitle>
           <CardDescription>Your copilot for navigating the job market.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button 
-            className="w-full" 
+            className="w-full font-bold" 
             onClick={signInWithGoogle}
             disabled={loading}
           >
