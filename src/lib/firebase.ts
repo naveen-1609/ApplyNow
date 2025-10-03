@@ -2,6 +2,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // TODO: Add your own Firebase configuration from your Firebase project
 const firebaseConfig = {
@@ -15,18 +16,21 @@ const firebaseConfig = {
 
 // Initialize Firebase
 function getFirebaseApp() {
+    // Don't initialize on the server or if the key is missing
+    if (typeof window === 'undefined' || !firebaseConfig.apiKey) {
+        return null;
+    }
+
     if (getApps().length) {
         return getApp();
     }
-    // Don't initialize on the server
-    if (typeof window === 'undefined') {
-        return null;
-    }
+    
     return initializeApp(firebaseConfig);
 }
 
 const app = getFirebaseApp();
 const auth = app ? getAuth(app) : null;
 const db = app ? getFirestore(app) : null;
+const storage = app ? getStorage(app) : null;
 
-export { app, auth, db };
+export { app, auth, db, storage };
