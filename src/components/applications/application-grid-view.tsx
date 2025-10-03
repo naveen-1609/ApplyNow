@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { mockJobApplications, mockResumes } from '@/lib/mock-data';
+import { mockJobApplications } from '@/lib/mock-data';
 import { format, formatDistanceToNow } from 'date-fns';
 import type { JobApplication, JobApplicationStatus } from '@/lib/types';
 import { Button } from '../ui/button';
@@ -23,13 +23,9 @@ const statusStyles: Record<JobApplicationStatus, string> = {
   Ghosted: 'border-gray-500/50 bg-gray-500/10 text-gray-700 dark:text-gray-400',
 };
 
-function ApplicationCard({ application }: { application: JobApplication }) {
-    const getResumeName = (resumeId: string) => {
-        return mockResumes.find(r => r.resume_id === resumeId)?.resume_name || 'N/A';
-    };
-
+function ApplicationCard({ application, onCardClick }: { application: JobApplication, onCardClick: (app: JobApplication) => void; }) {
     return (
-        <Card>
+        <Card onClick={() => onCardClick(application)} className="cursor-pointer hover:border-primary/50 transition-colors">
             <CardHeader>
                 <div className="flex justify-between items-start">
                     <CardTitle className="font-headline text-lg leading-tight">{application.job_title}</CardTitle>
@@ -39,12 +35,12 @@ function ApplicationCard({ application }: { application: JobApplication }) {
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-muted-foreground line-clamp-2">
-                    {application.job_description}
+                    {application.job_description || "No description provided."}
                 </p>
             </CardContent>
             <CardFooter className="flex justify-between items-center text-xs text-muted-foreground">
                 <span>Applied {formatDistanceToNow(application.applied_date, { addSuffix: true })}</span>
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" size="sm" asChild onClick={(e) => e.stopPropagation()}>
                     <a href={application.job_link} target="_blank" rel="noopener noreferrer">
                         View Job <ExternalLink className="ml-2 h-3 w-3" />
                     </a>
@@ -54,7 +50,7 @@ function ApplicationCard({ application }: { application: JobApplication }) {
     )
 }
 
-export function ApplicationGridView() {
+export function ApplicationGridView({ onEdit }: { onEdit: (app: JobApplication) => void; }) {
     const groupedApps = mockJobApplications.reduce((acc, app) => {
         const date = format(app.applied_date, 'yyyy-MM-dd');
         if (!acc[date]) {
@@ -73,7 +69,7 @@ export function ApplicationGridView() {
                 <h2 className="mb-4 font-semibold text-muted-foreground">{format(new Date(date), 'EEEE, MMMM d')}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {groupedApps[date].map(app => (
-                        <ApplicationCard key={app.job_id} application={app} />
+                        <ApplicationCard key={app.job_id} application={app} onCardClick={onEdit} />
                     ))}
                 </div>
             </div>

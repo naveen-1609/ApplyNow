@@ -48,7 +48,7 @@ export default function ApplicationsPage() {
           <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
         <TabsContent value="grid" className="mt-6">
-          <ApplicationGridView />
+          <ApplicationGridView onEdit={handleEditApplication}/>
         </TabsContent>
         <TabsContent value="list" className="mt-6">
           <ApplicationListView onEdit={handleEditApplication} />

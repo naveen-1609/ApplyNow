@@ -46,7 +46,7 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
         <TableHeader>
           <TableRow>
             <TableHead>Job Title</TableHead>
-            <TableHead className="hidden md:table-cell">Company</TableHead>
+            <TableHead>Company</TableHead>
             <TableHead className="hidden lg:table-cell">Resume Used</TableHead>
             <TableHead>Applied Date</TableHead>
             <TableHead>Status</TableHead>
@@ -63,7 +63,7 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
                   {app.job_title}
                 </a>
               </TableCell>
-              <TableCell className="hidden md:table-cell">{app.company_name}</TableCell>
+              <TableCell>{app.company_name}</TableCell>
               <TableCell className="hidden lg:table-cell">{getResumeName(app.resume_id)}</TableCell>
               <TableCell>{format(app.applied_date, 'MMM d, yyyy')}</TableCell>
               <TableCell>
@@ -81,8 +81,7 @@ export function ApplicationListView({ onEdit }: { onEdit: (app: JobApplication) 
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => onEdit(app)}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem>View Details</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onEdit(app)}>View Details / Edit</DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
                   </DropdownMenuContent>
