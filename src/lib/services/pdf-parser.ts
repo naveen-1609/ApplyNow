@@ -1,8 +1,9 @@
 'use client';
 import * as pdfjs from 'pdfjs-dist/build/pdf';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Explicitly set the worker source to the minified MJS build.
+// This is a more direct way to solve the module resolution issue.
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 export async function pdfToText(file: File): Promise<string> {
     const fileReader = new FileReader();
