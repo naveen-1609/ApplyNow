@@ -1,4 +1,4 @@
-import type { JobApplication, Resume, Target, Schedule, User } from './types';
+import type { Target, Schedule, User } from './types';
 import { subDays, format } from 'date-fns';
 
 export const mockUser: User = {
@@ -22,6 +22,7 @@ export const mockTarget: Target = {
   ],
 };
 
+// This is no longer used by the notifications form, but kept for reference
 export const mockSchedule: Schedule = {
   schedule_id: 'schedule-1',
   user_id: 'user-1',
