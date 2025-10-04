@@ -80,7 +80,14 @@ export function AtsCheckerTool() {
       return;
     }
     const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
-    if (!selectedResume) return;
+    if (!selectedResume) {
+        toast({
+            variant: "destructive",
+            title: "Resume Not Found",
+            description: "Could not find the selected resume. Please try again.",
+        });
+        return;
+    };
 
     setIsLoading(true);
     setResult(null);
