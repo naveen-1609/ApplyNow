@@ -35,13 +35,7 @@ export type JobApplication = {
 };
 
 export type Target = {
-  target_id: string;
-  user_id: string;
   daily_target: number;
-  history: {
-    date: string; // YYYY-MM-DD
-    applications_done: number;
-  }[];
 };
 
 export type Schedule = {

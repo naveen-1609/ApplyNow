@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   startOfMonth,
   endOfMonth,
@@ -9,17 +9,32 @@ import {
   format,
   addMonths,
   subMonths,
+  isToday,
+  isFuture
 } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { mockTarget } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import type { JobApplication } from '@/lib/types';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function TargetCalendar() {
+type TargetCalendarProps = {
+  applications: JobApplication[];
+  dailyTarget: number;
+};
+
+export function TargetCalendar({ applications, dailyTarget }: TargetCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const applicationsByDate = useMemo(() => {
+    return applications.reduce((acc, app) => {
+      const date = format(app.applied_date, 'yyyy-MM-dd');
+      acc[date] = (acc[date] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [applications]);
 
   const firstDayOfMonth = startOfMonth(currentMonth);
   const lastDayOfMonth = endOfMonth(currentMonth);
@@ -31,17 +46,15 @@ export function TargetCalendar() {
   const startingDayIndex = getDay(firstDayOfMonth);
 
   const getDayStatus = (day: Date): 'green' | 'yellow' | 'red' | 'gray' => {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    if (day > today) return 'gray';
+    if (isFuture(day) && !isToday(day)) return 'gray';
     
     const dayString = format(day, 'yyyy-MM-dd');
-    const record = mockTarget.history.find(h => h.date === dayString);
-    const applicationsDone = record ? record.applications_done : 0;
+    const applicationsDone = applicationsByDate[dayString] || 0;
     
-    if (applicationsDone === 0 && day < today) return 'red';
-    if (applicationsDone === 0 && day.getTime() === today.getTime()) return 'gray';
-    if (applicationsDone >= mockTarget.daily_target) return 'green';
+    if (applicationsDone === 0) {
+        return isToday(day) ? 'gray' : 'red';
+    }
+    if (applicationsDone >= dailyTarget) return 'green';
     return 'yellow';
   };
 
@@ -80,13 +93,15 @@ export function TargetCalendar() {
         ))}
         {daysInMonth.map((day) => {
             const status = getDayStatus(day);
-            const record = mockTarget.history.find(h => h.date === format(day, 'yyyy-MM-dd'));
+            const dayString = format(day, 'yyyy-MM-dd');
+            const applicationsDone = applicationsByDate[dayString] || 0;
             return (
-          <div key={day.toString()} className={cn("relative h-20 rounded-md p-2 flex flex-col justify-between items-end", getStatusColorClass(status))}>
-            <div className="font-bold self-start">{format(day, 'd')}</div>
-            {record && record.applications_done > 0 && <Badge variant="secondary" className="font-mono">{`${record.applications_done}/${mockTarget.daily_target}`}</Badge>}
-          </div>
-        )})}
+              <div key={day.toString()} className={cn("relative h-20 rounded-md p-2 flex flex-col justify-between items-end", getStatusColorClass(status))}>
+                <div className="font-bold self-start">{format(day, 'd')}</div>
+                {applicationsDone > 0 && <Badge variant="secondary" className="font-mono">{`${applicationsDone}/${dailyTarget}`}</Badge>}
+              </div>
+            )
+        })}
       </div>
     </div>
   );

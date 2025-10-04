@@ -1,4 +1,4 @@
-import type { Target, Schedule, User } from './types';
+import type { Schedule, User } from './types';
 import { subDays, format } from 'date-fns';
 
 export const mockUser: User = {
@@ -10,17 +10,6 @@ export const mockUser: User = {
 
 // This file now contains only data that is truly static or used for fallback.
 // User-specific data like resumes and applications are managed in Firestore.
-
-export const mockTarget: Target = {
-  target_id: 'target-1',
-  user_id: 'user-1',
-  daily_target: 3,
-  history: [
-    { date: format(subDays(new Date(), 2), 'yyyy-MM-dd'), applications_done: 3 },
-    { date: format(subDays(new Date(), 1), 'yyyy-MM-dd'), applications_done: 2 },
-    { date: format(new Date(), 'yyyy-MM-dd'), applications_done: 1 },
-  ],
-};
 
 // This is no longer used by the notifications form, but kept for reference
 export const mockSchedule: Schedule = {
