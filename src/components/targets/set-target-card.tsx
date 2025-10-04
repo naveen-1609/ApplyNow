@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
+import { Input } from '@/components/ui/input';
 import { mockTarget } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 
@@ -30,14 +30,14 @@ export function SetTargetCard() {
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
-            <Slider
-                defaultValue={[dailyTarget]}
-                value={[dailyTarget]}
-                onValueChange={(value) => setDailyTarget(value[0])}
-                max={10}
-                step={1}
+            <Input
+                type="number"
+                value={dailyTarget}
+                onChange={(e) => setDailyTarget(Number(e.target.value))}
+                min="0"
+                className="w-24"
             />
-            <span className="text-2xl font-bold text-primary w-12 text-center">{dailyTarget}</span>
+             <span className="text-muted-foreground">applications per day</span>
         </div>
       </CardContent>
       <CardFooter>
