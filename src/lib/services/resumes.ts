@@ -9,13 +9,15 @@ import {
   doc,
   Timestamp,
   getDoc,
+  query,
+  where,
 } from 'firebase/firestore';
 import type { Resume } from '@/lib/types';
-import { pdfToText } from '@/lib/services/pdf-parser';
+import { extractTextFromFile } from '@/lib/services/pdf-parser';
 
-const getResumesCollection = (userId: string) => {
+const getResumesCollection = () => {
     if (!db) throw new Error("Firestore is not initialized.");
-    return collection(db, `users/${userId}/resumes`);
+    return collection(db, 'resumes');
 }
 
 const getStorageInstance = () => {
@@ -34,14 +36,15 @@ const fromFirestore = (doc: any): Resume => {
 
 export const getResumes = async (userId: string): Promise<Resume[]> => {
     if (!db) return [];
-    const resumesCol = getResumesCollection(userId);
-    const snapshot = await getDocs(resumesCol);
+    const resumesCol = getResumesCollection();
+    const q = query(resumesCol, where('user_id', '==', userId));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(fromFirestore);
 };
 
 export const addResume = async (userId: string, resumeName: string, file: File): Promise<string> => {
     const storage = getStorageInstance();
-    const resumesCol = getResumesCollection(userId);
+    const resumesCol = getResumesCollection();
 
     // 1. Upload file to Firebase Storage
     const filePath = `users/${userId}/resumes/${Date.now()}-${file.name}`;
@@ -49,8 +52,11 @@ export const addResume = async (userId: string, resumeName: string, file: File):
     const uploadResult = await uploadBytes(storageRef, file);
     const file_url = await getDownloadURL(uploadResult.ref);
 
-    // 2. Extract text from PDF
-    const editable_text = await pdfToText(file);
+    // 2. Extract text from file (PDF, DOC, DOCX)
+    console.log('Starting text extraction for file:', file.name);
+    const editable_text = await extractTextFromFile(file);
+    console.log('Text extraction completed. Length:', editable_text.length);
+    console.log('First 200 characters of extracted text:', editable_text.substring(0, 200));
 
     // 3. Create document in Firestore
     const docData = {

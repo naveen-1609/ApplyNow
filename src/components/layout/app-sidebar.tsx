@@ -52,15 +52,16 @@ export function AppSidebar() {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
-                <SidebarMenuButton
-                  isActive={pathname.startsWith(item.href)}
-                  tooltip={item.label}
-                >
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith(item.href)}
+                tooltip={item.label}
+              >
+                <Link href={item.href}>
                   <item.icon />
                   <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -76,7 +77,7 @@ export function AppSidebar() {
             <span className="text-sm font-semibold truncate">{user.displayName}</span>
             <span className="text-xs text-muted-foreground truncate">{user.email}</span>
           </div>
-          <SidebarMenuButton variant="ghost" size="sm" className="ml-auto group-data-[collapsible=icon]:hidden" onClick={signOut}>
+          <SidebarMenuButton variant="outline" size="sm" className="ml-auto group-data-[collapsible=icon]:hidden" onClick={signOut}>
             <LogOut />
           </SidebarMenuButton>
         </div>

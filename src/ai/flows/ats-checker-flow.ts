@@ -21,9 +21,38 @@ const AtsAnalysisInputSchema = z.object({
 export type AtsAnalysisInput = z.infer<typeof AtsAnalysisInputSchema>;
 
 const AtsAnalysisOutputSchema = z.object({
-  matchScore: z.number().min(0).max(100).describe('A score from 0-100 indicating how well the resume matches the job description.'),
-  summary: z.string().describe('A brief summary of the analysis.'),
-  suggestedChanges: z.array(z.string()).describe('A list of specific, actionable suggestions to improve the resume for this job.'),
+  ats_match_score: z.number().min(0).max(100).describe('Overall ATS match score from 0-100'),
+  subscores: z.object({
+    skills_tools: z.number().min(0).max(100).describe('Technical skills and tools match score'),
+    responsibilities: z.number().min(0).max(100).describe('Responsibilities and impact match score'),
+    domain_industry: z.number().min(0).max(100).describe('Domain and industry alignment score'),
+    education_certs: z.number().min(0).max(100).describe('Education and certifications score'),
+    seniority_experience: z.number().min(0).max(100).describe('Seniority and experience level score'),
+    soft_skills: z.number().min(0).max(100).describe('Soft skills and communication score'),
+    formatting_ats: z.number().min(0).max(100).describe('Formatting and ATS compatibility score'),
+  }),
+  role_expectations: z.object({
+    summary: z.string().describe('2-3 sentence summary of what the company expects from this role'),
+    skills_and_tools: z.array(z.string()).describe('List of required skills and tools'),
+    responsibilities: z.array(z.string()).describe('List of core responsibilities and duties'),
+    education_and_certs: z.array(z.string()).describe('List of education and certification requirements'),
+    soft_skills: z.array(z.string()).describe('List of desired soft skills'),
+    industry_focus: z.string().describe('Industry or domain focus'),
+    experience_required: z.string().describe('Years of experience required'),
+  }),
+  resume_fit: z.object({
+    found: z.array(z.string()).describe('Requirements that are clearly met in the resume'),
+    partial: z.array(z.string()).describe('Requirements that are partially met'),
+    missing: z.array(z.string()).describe('Requirements that are missing from the resume'),
+  }),
+  current_problems: z.array(z.string()).describe('List of current resume issues'),
+  improvement_suggestions: z.array(z.string()).describe('Prioritized actionable improvement suggestions'),
+  predicted_score_improvement: z.object({
+    keyword_alignment: z.string().describe('Predicted score improvement from keyword alignment (e.g., "+8")'),
+    quantified_results: z.string().describe('Predicted score improvement from quantified results (e.g., "+5")'),
+    formatting_fix: z.string().describe('Predicted score improvement from formatting fixes (e.g., "+3")'),
+  }),
+  fit_summary: z.string().describe('2-3 sentence summary explaining the score and how resume compares to expectations'),
 });
 export type AtsAnalysisOutput = z.infer<typeof AtsAnalysisOutputSchema>;
 
@@ -52,18 +81,129 @@ const analysisPrompt = ai.definePrompt({
   name: 'atsAnalysisPrompt',
   input: { schema: AtsAnalysisInputSchema },
   output: { schema: AtsAnalysisOutputSchema },
-  prompt: `You are an expert ATS (Applicant Tracking System) reviewer and career coach.
-  Your task is to analyze the provided resume against the job description and provide a detailed report.
+  prompt: `SYSTEM
+You are a senior ATS (Applicant Tracking System) evaluator, recruiter, and career coach.
+Your task is to analyze a resume against a job description to assess overall fit, identify gaps, and propose improvements.
+You act like an expert recruiter explaining why a candidate would or would not pass an ATS screening and a hiring manager review.
 
-  Job Description:
-  {{{jobDescription}}}
+STYLE & TONE
+- Be factual, structured, and evidence-driven.
+- Reference phrases or sections from the resume when supporting your claims (≤20 words per quote).
+- Maintain a professional, recruiter-style tone.
+- Never invent experience or details not found in the resume.
+- If information is missing or ambiguous, explicitly state so.
+- Keep the JSON output compact enough to fit in an API response (<2000 tokens).
 
-  Resume Text:
-  {{{resumeText}}}
+INPUTS
+Job Description:
+{{{jobDescription}}}
 
-  1.  **Match Score**: Provide a score from 0 to 100 representing the match quality.
-  2.  **Summary**: Briefly explain the reasoning for the score, highlighting key strengths and weaknesses.
-  3.  **Suggested Changes**: Provide a list of concrete, actionable suggestions for improving the resume. Focus on keywords, skills, and experience alignment.`,
+Resume Text:
+{{{resumeText}}}
+
+ANALYSIS SECTIONS
+1. **Role Understanding**
+   Extract from the job description the clear expectations:
+   - Core responsibilities and daily duties.
+   - Mandatory hard skills, tools, and technologies.
+   - Desired soft skills or behavioral qualities.
+   - Education, certifications, and years of experience required.
+   - Industry or domain focus (e.g., finance, healthcare, retail).
+   - Seniority level and reporting structure.
+
+2. **Resume Evidence Extraction**
+   Identify what the resume demonstrates relative to those expectations.
+   - Mark each requirement as FOUND, PARTIAL, or MISSING.
+   - Include short evidence snippets for FOUND or PARTIAL.
+   - Highlight synonymous or related terminology (e.g., “ETL” vs “data pipeline”).
+
+3. **Scoring Framework (0–100 Total)**
+   Compute weighted subscores and total match score:
+   - Technical Skills & Tools → 30%
+   - Responsibilities & Impact → 25%
+   - Domain / Industry Alignment → 10%
+   - Education & Certifications → 10%
+   - Seniority & Experience → 10%
+   - Soft Skills & Communication → 5%
+   - Formatting & ATS Compatibility → 10%
+   Use integer rounding; if a category is N/A, re-normalize weights.
+
+4. **Formatting and Structural Review**
+   Identify issues that could cause parsing or recruiter readability problems:
+   - Two-column or table layouts.
+   - Images, icons, charts.
+   - Inconsistent dates or job titles.
+   - Large employment gaps (>12 months).
+   - Overuse of buzzwords or filler adjectives.
+   - Missing measurable outcomes (no metrics or results).
+
+5. **Role Expectation Summary**
+   In 2–3 sentences, summarize what the company is likely expecting from this role based on the JD (skills, outputs, mindset).
+
+6. **Fit Analysis**
+   Summarize the candidate’s alignment with those expectations:
+   - Strengths: where they clearly meet or exceed expectations.
+   - Weaknesses: where they partially meet or miss.
+   - Overall verdict (Strong Fit / Moderate Fit / Weak Fit).
+
+7. **Current Problems**
+   List tangible resume issues lowering the ATS score or recruiter impression (format, keyword gaps, clarity, etc.).
+
+8. **Improvement Plan**
+   Provide clear, prioritized actions:
+   - Add missing keywords or skills.
+   - Adjust bullet points to show measurable outcomes (use XYZ formula).
+   - Reorder or rephrase sections for clarity.
+   - Align summary and headline with JD language.
+
+9. **Predicted Impact**
+   Estimate how much (in percentage points) each improvement could raise the match score if implemented.
+
+OUTPUT FORMAT
+Return a single JSON object (no markdown, no commentary before or after):
+
+{
+  "ats_match_score": 0,
+  "subscores": {
+    "skills_tools": 0,
+    "responsibilities": 0,
+    "domain_industry": 0,
+    "education_certs": 0,
+    "seniority_experience": 0,
+    "soft_skills": 0,
+    "formatting_ats": 0
+  },
+  "role_expectations": {
+    "summary": "string (2–3 sentences)",
+    "skills_and_tools": ["string", "..."],
+    "responsibilities": ["string", "..."],
+    "education_and_certs": ["string", "..."],
+    "soft_skills": ["string", "..."],
+    "industry_focus": "string",
+    "experience_required": "string"
+  },
+  "resume_fit": {
+    "found": ["string", "..."],
+    "partial": ["string", "..."],
+    "missing": ["string", "..."]
+  },
+  "current_problems": [
+    "string issue 1 (e.g., inconsistent job titles)",
+    "string issue 2 (e.g., lacks measurable outcomes)"
+  ],
+  "improvement_suggestions": [
+    "Add missing skill: Python, Azure Data Factory.",
+    "Include quantifiable impact in project bullets (e.g., 'reduced pipeline latency by 20%').",
+    "Replace two-column layout with single-column ATS-friendly design."
+  ],
+  "predicted_score_improvement": {
+    "keyword_alignment": "+8",
+    "quantified_results": "+5",
+    "formatting_fix": "+3"
+  },
+  "fit_summary": "string (2–3 sentences explaining why the score is what it is and how the resume compares to expectations)."
+}
+`,
 });
 
 const analyzeResumeFlow = ai.defineFlow(

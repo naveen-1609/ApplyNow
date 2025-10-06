@@ -73,7 +73,7 @@ export function UploadResumeDialog({
         <DialogHeader>
           <DialogTitle>Upload New Resume</DialogTitle>
           <DialogDescription>
-            Add a new resume to your directory. PDF extraction will provide text for AI analysis.
+            Add a new resume to your directory. PDF, DOC, and DOCX files are supported. Text extraction will provide content for AI analysis.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -99,7 +99,7 @@ export function UploadResumeDialog({
               type="file" 
               onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
               className="col-span-3"
-              accept=".pdf"
+              accept=".pdf,.doc,.docx"
               disabled={isUploading}
             />
           </div>

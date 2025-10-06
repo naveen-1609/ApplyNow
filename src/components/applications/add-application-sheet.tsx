@@ -69,7 +69,7 @@ export function AddApplicationSheet({
                     setCompany(application.company_name);
                     setLink(application.job_link);
                     setDescription(application.job_description);
-                    setResumeId(application.resume_id);
+                    setResumeId(application.resume_id || undefined);
                     setStatus(application.status);
                     setAppliedDate(application.applied_date);
                 } else {
@@ -88,11 +88,11 @@ export function AddApplicationSheet({
     }, [application, isOpen, user]);
 
     const handleSave = () => {
-        if (!title || !company || !resumeId || !appliedDate) {
+        if (!title || !company || !appliedDate) {
              toast({
                 variant: 'destructive',
                 title: 'Missing Fields',
-                description: 'Please fill out all required fields.',
+                description: 'Please fill out all required fields (Job Title, Company, and Applied Date).',
             });
             return;
         }
@@ -102,7 +102,7 @@ export function AddApplicationSheet({
             company_name: company,
             job_link: link,
             job_description: description,
-            resume_id: resumeId,
+            resume_id: resumeId || '', // Make resume_id optional
             status: status,
             applied_date: appliedDate
         };
@@ -156,13 +156,14 @@ export function AddApplicationSheet({
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="resume" className="text-right">
-              Resume Used
+              Resume Used <span className="text-muted-foreground">(Optional)</span>
             </Label>
-            <Select value={resumeId} onValueChange={setResumeId}>
+            <Select value={resumeId || "none"} onValueChange={(value) => setResumeId(value === "none" ? undefined : value)}>
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a resume" />
+                <SelectValue placeholder="Select a resume (optional)" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">No resume selected</SelectItem>
                 {resumes.map((resume) => (
                   <SelectItem key={resume.resume_id} value={resume.resume_id}>
                     {resume.resume_name}

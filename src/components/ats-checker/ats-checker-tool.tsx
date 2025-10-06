@@ -93,13 +93,18 @@ export function AtsCheckerTool() {
     setResult(null);
     setChatHistory([]);
     try {
+        // Debug: Log the resume text being sent
+        console.log('Resume text being sent to ATS:', selectedResume.editable_text);
+        console.log('Resume text length:', selectedResume.editable_text?.length);
+        console.log('First 200 characters:', selectedResume.editable_text?.substring(0, 200));
+        
         const analysis = await analyzeResume({
             jobDescription,
             resumeText: selectedResume.editable_text,
         });
         setResult(analysis);
         setChatHistory([
-            { role: 'model', content: `Your resume has a match score of ${analysis.matchScore}%. Here are my suggestions. How can I help you improve it?` }
+            { role: 'model', content: `Your resume has a match score of ${analysis.ats_match_score}%. Here are my suggestions. How can I help you improve it?` }
         ]);
     } catch (error) {
         console.error("Analysis failed:", error);
@@ -203,21 +208,169 @@ export function AtsCheckerTool() {
             <>
             <Card>
                 <CardHeader>
-                    <CardTitle>Analysis Result</CardTitle>
+                    <CardTitle>ATS Analysis Result</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-6">
+                    {/* Overall Score */}
                     <div>
                         <div className="flex justify-between items-center mb-1">
-                            <h3 className="font-semibold text-muted-foreground">Match Score</h3>
-                            <span className="font-bold text-primary text-lg">{result.matchScore}%</span>
+                            <h3 className="font-semibold text-muted-foreground">Overall Match Score</h3>
+                            <span className="font-bold text-primary text-2xl">{result.ats_match_score}%</span>
                         </div>
-                        <Progress value={result.matchScore} className="h-3"/>
+                        <Progress value={result.ats_match_score} className="h-3"/>
                     </div>
+
+                    {/* Detailed Subscores */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Skills & Tools</span>
+                                <span className="font-medium">{result.subscores.skills_tools}%</span>
+                            </div>
+                            <Progress value={result.subscores.skills_tools} className="h-2"/>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Responsibilities</span>
+                                <span className="font-medium">{result.subscores.responsibilities}%</span>
+                            </div>
+                            <Progress value={result.subscores.responsibilities} className="h-2"/>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Domain/Industry</span>
+                                <span className="font-medium">{result.subscores.domain_industry}%</span>
+                            </div>
+                            <Progress value={result.subscores.domain_industry} className="h-2"/>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Education/Certs</span>
+                                <span className="font-medium">{result.subscores.education_certs}%</span>
+                            </div>
+                            <Progress value={result.subscores.education_certs} className="h-2"/>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Experience Level</span>
+                                <span className="font-medium">{result.subscores.seniority_experience}%</span>
+                            </div>
+                            <Progress value={result.subscores.seniority_experience} className="h-2"/>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                                <span>Soft Skills</span>
+                                <span className="font-medium">{result.subscores.soft_skills}%</span>
+                            </div>
+                            <Progress value={result.subscores.soft_skills} className="h-2"/>
+                        </div>
+                    </div>
+
+                    {/* Fit Summary */}
                     <Alert>
                         <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Summary</AlertTitle>
-                        <AlertDescription>{result.summary}</AlertDescription>
+                        <AlertTitle>Fit Analysis</AlertTitle>
+                        <AlertDescription>{result.fit_summary}</AlertDescription>
                     </Alert>
+
+                    {/* Role Expectations */}
+                    <div className="space-y-3">
+                        <h4 className="font-semibold">Role Expectations</h4>
+                        <p className="text-sm text-muted-foreground">{result.role_expectations.summary}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <h5 className="font-medium mb-2">Required Skills:</h5>
+                                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                                    {result.role_expectations.skills_and_tools.slice(0, 5).map((skill, i) => (
+                                        <li key={i}>{skill}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                            <div>
+                                <h5 className="font-medium mb-2">Key Responsibilities:</h5>
+                                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                                    {result.role_expectations.responsibilities.slice(0, 3).map((resp, i) => (
+                                        <li key={i}>{resp}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Resume Fit Analysis */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <h5 className="font-medium text-green-600 mb-2">✓ Found ({result.resume_fit.found.length})</h5>
+                            <ul className="text-sm space-y-1">
+                                {result.resume_fit.found.slice(0, 3).map((item, i) => (
+                                    <li key={i} className="text-green-700">• {item}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h5 className="font-medium text-yellow-600 mb-2">⚠ Partial ({result.resume_fit.partial.length})</h5>
+                            <ul className="text-sm space-y-1">
+                                {result.resume_fit.partial.slice(0, 3).map((item, i) => (
+                                    <li key={i} className="text-yellow-700">• {item}</li>
+                                ))}
+                            </ul>
+                        </div>
+                        <div>
+                            <h5 className="font-medium text-red-600 mb-2">✗ Missing ({result.resume_fit.missing.length})</h5>
+                            <ul className="text-sm space-y-1">
+                                {result.resume_fit.missing.slice(0, 3).map((item, i) => (
+                                    <li key={i} className="text-red-700">• {item}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* Current Problems */}
+                    <div>
+                        <h4 className="font-semibold mb-3">Current Issues</h4>
+                        <ul className="space-y-2">
+                            {result.current_problems.map((problem, i) => (
+                                <li key={i} className="flex items-start gap-2 text-sm">
+                                    <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                                    <span>{problem}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Improvement Suggestions */}
+                    <div>
+                        <h4 className="font-semibold mb-3">Improvement Suggestions</h4>
+                        <ul className="space-y-2">
+                            {result.improvement_suggestions.map((suggestion, i) => (
+                                <li key={i} className="flex items-start gap-2 text-sm">
+                                    <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                                        {i + 1}
+                                    </span>
+                                    <span>{suggestion}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* Predicted Improvements */}
+                    <div>
+                        <h4 className="font-semibold mb-3">Predicted Score Improvements</h4>
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="p-3 bg-green-50 rounded-lg">
+                                <div className="text-lg font-bold text-green-600">{result.predicted_score_improvement.keyword_alignment}</div>
+                                <div className="text-sm text-green-700">Keyword Alignment</div>
+                            </div>
+                            <div className="p-3 bg-blue-50 rounded-lg">
+                                <div className="text-lg font-bold text-blue-600">{result.predicted_score_improvement.quantified_results}</div>
+                                <div className="text-sm text-blue-700">Quantified Results</div>
+                            </div>
+                            <div className="p-3 bg-purple-50 rounded-lg">
+                                <div className="text-lg font-bold text-purple-600">{result.predicted_score_improvement.formatting_fix}</div>
+                                <div className="text-sm text-purple-700">Formatting Fix</div>
+                            </div>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 

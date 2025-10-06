@@ -9,16 +9,17 @@ import {
   deleteDoc,
   doc,
   Timestamp,
+  where,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData } from '@/lib/types';
 
-const getApplicationsCollection = (userId: string) => {
+const getApplicationsCollection = () => {
     if (!db) {
         throw new Error("Firestore is not initialized. Please check your Firebase configuration.");
     }
-    return collection(db, `users/${userId}/applications`);
+    return collection(db, 'job_applications');
 }
 
 // Function to convert Firestore document to JobApplication type
@@ -40,14 +41,15 @@ const fromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): JobApplication
 
 // Get all applications for a user
 export const getApplications = async (userId: string): Promise<JobApplication[]> => {
-    const applicationsCol = getApplicationsCollection(userId);
-    const snapshot = await getDocs(applicationsCol);
+    const applicationsCol = getApplicationsCollection();
+    const q = query(applicationsCol, where('user_id', '==', userId));
+    const snapshot = await getDocs(q);
     return snapshot.docs.map(fromFirestore);
 };
 
 // Add a new job application
 export const addApplication = async (userId: string, data: CreateJobApplicationData): Promise<string> => {
-    const applicationsCol = getApplicationsCollection(userId);
+    const applicationsCol = getApplicationsCollection();
     const now = Timestamp.now();
     
     const docData = {
@@ -65,7 +67,7 @@ export const addApplication = async (userId: string, data: CreateJobApplicationD
 export const updateApplication = async (userId: string, jobId: string, data: UpdateJobApplicationData): Promise<void> => {
     if (!db) throw new Error("Firestore is not initialized.");
     
-    const appDocRef = doc(db, `users/${userId}/applications`, jobId);
+    const appDocRef = doc(db, 'job_applications', jobId);
     
     const updateData: { [key: string]: any } = {
         ...data,
@@ -83,6 +85,6 @@ export const updateApplication = async (userId: string, jobId: string, data: Upd
 export const deleteApplication = async (userId: string, jobId: string): Promise<void> => {
     if (!db) throw new Error("Firestore is not initialized.");
     
-    const appDocRef = doc(db, `users/${userId}/applications`, jobId);
+    const appDocRef = doc(db, 'job_applications', jobId);
     await deleteDoc(appDocRef);
 };

@@ -20,15 +20,18 @@ let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
 
 // Initialize Firebase safely
-if (firebaseConfig.apiKey && typeof window !== 'undefined') {
+if (firebaseConfig.apiKey) {
   try {
     app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
+    console.log('Firebase initialized successfully');
   } catch (e) {
     console.error('Firebase initialization error', e);
   }
+} else {
+  console.error('Firebase configuration is missing. Please check your environment variables.');
 }
 
 export { app, auth, db, storage };

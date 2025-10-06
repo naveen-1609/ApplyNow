@@ -59,7 +59,8 @@ export function ApplicationListView({ applications, onEdit, onDelete }: { applic
       fetchResumes();
   }, [user]);
 
-  const getResumeName = (resumeId: string) => {
+  const getResumeName = (resumeId: string | null) => {
+    if (!resumeId) return 'No resume';
     return resumes.find(r => r.resume_id === resumeId)?.resume_name || 'N/A';
   };
   

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { getUserSettings, updateUserSettings } from '@/lib/services/users';
@@ -18,6 +20,32 @@ const defaultSchedule: Schedule = {
   reminder_time: '06:00',
   summary_time: '22:00',
   email_enabled: false,
+  reminder_email_template: `Good morning! 🌅
+
+It's time to focus on your job search goals for today.
+
+Your daily target: {{daily_target}} applications
+Applications made today: {{applications_today}}
+
+Remember: Consistency is key to landing your dream job. You've got this! 💪
+
+Best regards,
+CareerPilot`,
+  summary_email_template: `Good evening! 🌙
+
+Here's your daily job search summary:
+
+📊 Today's Progress:
+• Applications submitted: {{applications_today}}
+• Daily target: {{daily_target}}
+• Progress: {{progress_percentage}}%
+
+{{motivational_message}}
+
+Keep up the great work! Every application brings you closer to your goal. 🚀
+
+Best regards,
+CareerPilot`
 };
 
 export function NotificationsForm() {
@@ -94,62 +122,125 @@ export function NotificationsForm() {
     }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Email Notifications</CardTitle>
-        <CardDescription>
-          Configure your daily reminder and summary emails. This requires setting up scheduled functions in your cloud environment.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="flex items-center justify-between rounded-lg border p-4">
-          <div className="space-y-0.5">
-            <Label htmlFor="email-enabled">Enable Notifications</Label>
-            <p className="text-sm text-muted-foreground">
-              Receive daily emails.
-            </p>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Email Notifications</CardTitle>
+          <CardDescription>
+            Configure your daily reminder and summary emails. Customize the content to match your preferences.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="space-y-0.5">
+              <Label htmlFor="email-enabled">Enable Notifications</Label>
+              <p className="text-sm text-muted-foreground">
+                Receive daily reminder and summary emails.
+              </p>
+            </div>
+            <Switch
+              id="email-enabled"
+              checked={schedule.email_enabled}
+              onCheckedChange={(checked) => setSchedule(s => ({ ...s, email_enabled: checked }))}
+              disabled={saving}
+            />
           </div>
-          <Switch
-            id="email-enabled"
-            checked={schedule.email_enabled}
-            onCheckedChange={(checked) => setSchedule(s => ({ ...s, email_enabled: checked }))}
-            disabled={saving}
-          />
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="reminder-time">Daily Reminder Time</Label>
-            <Input 
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="reminder-time">Daily Reminder Time</Label>
+              <Input 
                 id="reminder-time"
                 type="time"
                 value={schedule.reminder_time}
                 onChange={(e) => setSchedule(s => ({ ...s, reminder_time: e.target.value }))}
-                className="w-48"
+                className="w-full"
                 disabled={!schedule.email_enabled || saving}
-            />
-            <p className="text-sm text-muted-foreground">
+              />
+              <p className="text-sm text-muted-foreground">
                 Get a morning reminder about your daily target.
-            </p>
-        </div>
-        <div className="space-y-2">
-            <Label htmlFor="summary-time">Daily Summary Time</Label>
-            <Input 
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="summary-time">Daily Summary Time</Label>
+              <Input 
                 id="summary-time"
                 type="time"
                 value={schedule.summary_time}
                 onChange={(e) => setSchedule(s => ({ ...s, summary_time: e.target.value }))}
-                className="w-48"
+                className="w-full"
                 disabled={!schedule.email_enabled || saving}
-            />
-            <p className="text-sm text-muted-foreground">
+              />
+              <p className="text-sm text-muted-foreground">
                 Receive an evening summary of your day's applications.
-            </p>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handleSave} disabled={saving}>
+              </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? 'Saving...' : 'Save Preferences'}
-        </Button>
-      </CardFooter>
-    </Card>
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {schedule.email_enabled && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Email Templates</CardTitle>
+            <CardDescription>
+              Customize your email content. Use variables like {`{{daily_target}}`}, {`{{applications_today}}`}, {`{{progress_percentage}}`}, and {`{{motivational_message}}`}.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="reminder" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="reminder">Morning Reminder</TabsTrigger>
+                <TabsTrigger value="summary">Evening Summary</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="reminder" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reminder-template">Reminder Email Template</Label>
+                  <Textarea
+                    id="reminder-template"
+                    value={schedule.reminder_email_template || ''}
+                    onChange={(e) => setSchedule(s => ({ ...s, reminder_email_template: e.target.value }))}
+                    className="min-h-[200px] font-mono text-sm"
+                    placeholder="Enter your custom reminder email template..."
+                    disabled={saving}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Available variables: {`{{daily_target}}`}, {`{{applications_today}}`}
+                  </p>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="summary" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="summary-template">Summary Email Template</Label>
+                  <Textarea
+                    id="summary-template"
+                    value={schedule.summary_email_template || ''}
+                    onChange={(e) => setSchedule(s => ({ ...s, summary_email_template: e.target.value }))}
+                    className="min-h-[200px] font-mono text-sm"
+                    placeholder="Enter your custom summary email template..."
+                    disabled={saving}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Available variables: {`{{applications_today}}`}, {`{{daily_target}}`}, {`{{progress_percentage}}`}, {`{{motivational_message}}`}
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+          <CardFooter>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save Templates'}
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
+    </div>
   );
 }

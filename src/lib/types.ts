@@ -28,7 +28,7 @@ export type JobApplication = {
   job_title: string;
   job_link: string;
   job_description: string;
-  resume_id: string;
+  resume_id: string | null; // Make resume_id optional
   status: JobApplicationStatus;
   applied_date: Date;
   last_updated: Date;
@@ -44,6 +44,8 @@ export type Schedule = {
   reminder_time: string; // "HH:mm"
   summary_time: string; // "HH:mm"
   email_enabled: boolean;
+  reminder_email_template?: string;
+  summary_email_template?: string;
 };
 
 // Firestore document types
