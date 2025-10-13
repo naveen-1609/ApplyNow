@@ -6,6 +6,16 @@ import { OptimizedAuthProvider } from '@/hooks/use-optimized-auth';
 export const metadata: Metadata = {
   title: 'Application Console',
   description: 'Your comprehensive job application management platform.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }
+    ]
+  },
+  manifest: '/site.webmanifest'
 };
 
 export default function RootLayout({

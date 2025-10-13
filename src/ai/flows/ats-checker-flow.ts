@@ -75,6 +75,24 @@ const ChatOutputSchema = z.object({
 });
 export type ChatOutput = z.infer<typeof ChatOutputSchema>;
 
+// Schema for Cover Letter Generation
+const CoverLetterInputSchema = z.object({
+  jobDescription: z.string().describe('The description of the job.'),
+  resumeText: z.string().describe('The text content of the resume.'),
+  companyName: z.string().optional().describe('The name of the company (optional).'),
+  jobTitle: z.string().optional().describe('The job title (optional).'),
+  tone: z.enum(['professional', 'enthusiastic', 'confident', 'conversational']).default('professional').describe('The tone of the cover letter.'),
+  length: z.enum(['short', 'medium', 'long']).default('medium').describe('The length of the cover letter.'),
+});
+export type CoverLetterInput = z.infer<typeof CoverLetterInputSchema>;
+
+const CoverLetterOutputSchema = z.object({
+  coverLetter: z.string().describe('The generated cover letter.'),
+  keyPoints: z.array(z.string()).describe('Key points highlighted in the cover letter.'),
+  customizationTips: z.array(z.string()).describe('Tips for further customizing the cover letter.'),
+});
+export type CoverLetterOutput = z.infer<typeof CoverLetterOutputSchema>;
+
 
 // Initial Analysis Flow
 const analysisPrompt = ai.definePrompt({
@@ -262,4 +280,82 @@ const chatWithResumeAssistantFlow = ai.defineFlow(
 
 export async function chatWithResumeAssistant(input: ChatInput): Promise<ChatOutput> {
     return chatWithResumeAssistantFlow(input);
+}
+
+// Cover Letter Generation Flow
+const coverLetterPrompt = ai.definePrompt({
+  name: 'coverLetterPrompt',
+  input: { schema: CoverLetterInputSchema },
+  output: { schema: CoverLetterOutputSchema },
+  prompt: `You are an expert career coach and professional writer specializing in creating compelling cover letters that get candidates noticed by recruiters and hiring managers.
+
+Your task is to generate a personalized cover letter that:
+1. Aligns the candidate's resume with the specific job requirements
+2. Highlights relevant experience and achievements
+3. Demonstrates knowledge of the role and company
+4. Uses the specified tone and length
+5. Follows professional cover letter best practices
+
+**Job Description:**
+{{{jobDescription}}}
+
+**Candidate's Resume:**
+{{{resumeText}}}
+
+**Company Name:** {{{companyName}}}
+**Job Title:** {{{jobTitle}}}
+**Tone:** {{{tone}}}
+**Length:** {{{length}}}
+
+**Cover Letter Guidelines:**
+
+**Structure:**
+- Professional header with contact information
+- Personalized greeting (avoid "To Whom It May Concern")
+- Opening paragraph: Express interest and mention the specific position
+- Body paragraphs (2-3): Highlight relevant experience and achievements
+- Closing paragraph: Reiterate interest and call to action
+- Professional sign-off
+
+**Content Requirements:**
+- Use specific examples from the resume that match job requirements
+- Include quantifiable achievements where possible
+- Show knowledge of the company/role (if company name provided)
+- Address key skills and qualifications mentioned in the job description
+- Demonstrate enthusiasm and cultural fit
+
+**Tone Guidelines:**
+- Professional: Formal, respectful, business-appropriate
+- Enthusiastic: Energetic, passionate, excited about the opportunity
+- Confident: Self-assured, highlighting strengths and capabilities
+- Conversational: Friendly, approachable, but still professional
+
+**Length Guidelines:**
+- Short: 200-300 words, 3-4 paragraphs
+- Medium: 300-400 words, 4-5 paragraphs  
+- Long: 400-500 words, 5-6 paragraphs
+
+**Key Points to Highlight:**
+Extract 3-5 most relevant points from the resume that align with the job requirements.
+
+**Customization Tips:**
+Provide 3-4 specific suggestions for further personalizing the cover letter.
+
+Return a JSON object with the cover letter, key points, and customization tips.`,
+});
+
+const generateCoverLetterFlow = ai.defineFlow(
+  {
+    name: 'generateCoverLetterFlow',
+    inputSchema: CoverLetterInputSchema,
+    outputSchema: CoverLetterOutputSchema,
+  },
+  async (input) => {
+    const { output } = await coverLetterPrompt(input);
+    return output!;
+  }
+);
+
+export async function generateCoverLetter(input: CoverLetterInput): Promise<CoverLetterOutput> {
+  return generateCoverLetterFlow(input);
 }

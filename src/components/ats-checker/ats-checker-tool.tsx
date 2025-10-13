@@ -18,8 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { analyzeResume, chatWithResumeAssistant, AtsAnalysisOutput, ChatInput } from '@/ai/flows/ats-checker-flow';
-import { AlertCircle, Bot, Send, User as UserIcon } from 'lucide-react';
+import { analyzeResume, chatWithResumeAssistant, generateCoverLetter, AtsAnalysisOutput, ChatInput, CoverLetterInput, CoverLetterOutput } from '@/ai/flows/ats-checker-flow';
+import { AlertCircle, Bot, Send, User as UserIcon, FileText, Copy, Download } from 'lucide-react';
 import { Skeleton } from '../ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -48,6 +48,14 @@ export function AtsCheckerTool() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [userMessage, setUserMessage] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // Cover letter states
+  const [isGeneratingCoverLetter, setIsGeneratingCoverLetter] = useState(false);
+  const [coverLetterResult, setCoverLetterResult] = useState<CoverLetterOutput | null>(null);
+  const [companyName, setCompanyName] = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [coverLetterTone, setCoverLetterTone] = useState<'professional' | 'enthusiastic' | 'confident' | 'conversational'>('professional');
+  const [coverLetterLength, setCoverLetterLength] = useState<'short' | 'medium' | 'long'>('medium');
 
   // Set default resume when resumes are loaded
   useEffect(() => {
@@ -145,10 +153,92 @@ export function AtsCheckerTool() {
     }
   };
 
+  const handleGenerateCoverLetter = async () => {
+    if (!jobDescription || !selectedResumeId) {
+      toast({
+        variant: "destructive",
+        title: "Missing Information",
+        description: "Please provide a job description and select a resume.",
+      });
+      return;
+    }
+
+    const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
+    if (!selectedResume) {
+      toast({
+        variant: "destructive",
+        title: "Resume Not Found",
+        description: "Could not find the selected resume. Please try again.",
+      });
+      return;
+    }
+
+    setIsGeneratingCoverLetter(true);
+    setCoverLetterResult(null);
+
+    try {
+      const coverLetterInput: CoverLetterInput = {
+        jobDescription,
+        resumeText: selectedResume.editable_text,
+        companyName: companyName || undefined,
+        jobTitle: jobTitle || undefined,
+        tone: coverLetterTone,
+        length: coverLetterLength,
+      };
+
+      const result = await generateCoverLetter(coverLetterInput);
+      setCoverLetterResult(result);
+      
+      toast({
+        title: "Cover Letter Generated",
+        description: "Your personalized cover letter is ready!",
+      });
+    } catch (error) {
+      console.error("Cover letter generation failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: "Could not generate the cover letter. Please try again later.",
+      });
+    } finally {
+      setIsGeneratingCoverLetter(false);
+    }
+  };
+
+  const handleCopyCoverLetter = () => {
+    if (coverLetterResult) {
+      navigator.clipboard.writeText(coverLetterResult.coverLetter);
+      toast({
+        title: "Copied to Clipboard",
+        description: "Cover letter has been copied to your clipboard.",
+      });
+    }
+  };
+
+  const handleDownloadCoverLetter = () => {
+    if (coverLetterResult) {
+      const blob = new Blob([coverLetterResult.coverLetter], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cover-letter-${companyName || 'application'}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Downloaded",
+        description: "Cover letter has been downloaded.",
+      });
+    }
+  };
+
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <Card className="lg:col-span-1">
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="lg:col-span-1 space-y-6">
+        <Card>
         <CardHeader>
           <CardTitle>Analysis Setup</CardTitle>
           <CardDescription>
@@ -183,7 +273,80 @@ export function AtsCheckerTool() {
         </CardFooter>
       </Card>
       
-      <div className="lg:col-span-2 space-y-8">
+        {/* Cover Letter Generation Card */}
+        <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Cover Letter Generator
+          </CardTitle>
+          <CardDescription>
+            Generate a personalized cover letter based on your resume and the job description.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Company Name (Optional)</label>
+            <Input
+              placeholder="e.g., Google, Microsoft"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              disabled={isGeneratingCoverLetter}
+            />
+          </div>
+          
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Job Title (Optional)</label>
+            <Input
+              placeholder="e.g., Software Engineer, Product Manager"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              disabled={isGeneratingCoverLetter}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Tone</label>
+            <Select value={coverLetterTone} onValueChange={(value: any) => setCoverLetterTone(value)} disabled={isGeneratingCoverLetter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="professional">Professional</SelectItem>
+                <SelectItem value="enthusiastic">Enthusiastic</SelectItem>
+                <SelectItem value="confident">Confident</SelectItem>
+                <SelectItem value="conversational">Conversational</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Length</label>
+            <Select value={coverLetterLength} onValueChange={(value: any) => setCoverLetterLength(value)} disabled={isGeneratingCoverLetter}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="short">Short (200-300 words)</SelectItem>
+                <SelectItem value="medium">Medium (300-400 words)</SelectItem>
+                <SelectItem value="long">Long (400-500 words)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button 
+            onClick={handleGenerateCoverLetter} 
+            disabled={isGeneratingCoverLetter || !jobDescription || !selectedResumeId || resumes.length === 0} 
+            className="w-full"
+          >
+            {isGeneratingCoverLetter ? 'Generating...' : 'Generate Cover Letter'}
+          </Button>
+        </CardFooter>
+        </Card>
+      </div>
+      
+      <div className="lg:col-span-3 space-y-8">
         {isLoading && (
             <Card>
                 <CardHeader>
@@ -416,8 +579,92 @@ export function AtsCheckerTool() {
             </>
         )}
 
-        {!result && !isLoading && (
-            <Card className="lg:col-span-2 flex items-center justify-center h-96">
+        {/* Cover Letter Results */}
+        {coverLetterResult && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Generated Cover Letter
+                  </CardTitle>
+                  <CardDescription>
+                    Personalized cover letter based on your resume and job description
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleCopyCoverLetter}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDownloadCoverLetter}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Cover Letter Content */}
+              <div className="space-y-4">
+                <h4 className="font-semibold">Cover Letter</h4>
+                <div className="bg-muted p-4 rounded-lg">
+                  <pre className="whitespace-pre-wrap text-sm font-mono leading-relaxed">
+                    {coverLetterResult.coverLetter}
+                  </pre>
+                </div>
+              </div>
+
+              {/* Key Points */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Key Points Highlighted</h4>
+                <ul className="space-y-2">
+                  {coverLetterResult.keyPoints.map((point, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium flex-shrink-0 mt-0.5">
+                        {index + 1}
+                      </span>
+                      <span>{point}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Customization Tips */}
+              <div className="space-y-3">
+                <h4 className="font-semibold">Customization Tips</h4>
+                <ul className="space-y-2">
+                  {coverLetterResult.customizationTips.map((tip, index) => (
+                    <li key={index} className="flex items-start gap-2 text-sm">
+                      <AlertCircle className="h-4 w-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <span>{tip}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {isGeneratingCoverLetter && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Generating Cover Letter
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-4 w-2/3" />
+            </CardContent>
+          </Card>
+        )}
+
+        {!result && !isLoading && !coverLetterResult && !isGeneratingCoverLetter && (
+            <Card className="lg:col-span-3 flex items-center justify-center h-96">
                 <div className="text-center">
                     <CardTitle>Ready for Analysis</CardTitle>
                     <CardDescription className="mt-2">
