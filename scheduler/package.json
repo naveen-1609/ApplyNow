@@ -1,0 +1,29 @@
+{
+  "name": "applynow-scheduler",
+  "version": "1.0.0",
+  "description": "Email scheduler service for ApplyNow application",
+  "main": "api-scheduler.js",
+  "scripts": {
+    "start": "node api-scheduler.js",
+    "dev": "nodemon api-scheduler.js",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.3",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "email",
+    "scheduler",
+    "sendgrid",
+    "notifications"
+  ],
+  "author": "ApplyNow Team",
+  "license": "MIT"
+}

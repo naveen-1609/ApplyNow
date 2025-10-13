@@ -1,0 +1,27 @@
+# Docker Compose for ApplyNow Scheduler Only
+version: '3.8'
+
+services:
+  # Email Scheduler Service
+  scheduler:
+    build:
+      context: ./scheduler
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+networks:
+  default:
+    driver: bridge

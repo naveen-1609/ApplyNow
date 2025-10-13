@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/hooks/use-auth';
+import { OptimizedAuthProvider } from '@/hooks/use-optimized-auth';
 
 export const metadata: Metadata = {
-  title: 'CareerPilot',
-  description: 'Your copilot for navigating the job market.',
+  title: 'Application Console',
+  description: 'Your comprehensive job application management platform.',
 };
 
 export default function RootLayout({
@@ -24,10 +24,27 @@ export default function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
+        <OptimizedAuthProvider>
           {children}
           <Toaster />
-        </AuthProvider>
+        </OptimizedAuthProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then((registration) => {
+                      console.log('SW registered: ', registration);
+                    })
+                    .catch((registrationError) => {
+                      console.log('SW registration failed: ', registrationError);
+                    });
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

@@ -1,41 +1,36 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { PlusCircle, List, LayoutGrid } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ApplicationListView } from '@/components/applications/application-list-view';
+import { OptimizedApplicationListView } from '@/components/applications/optimized-application-list-view';
 import { ApplicationGridView } from '@/components/applications/application-grid-view';
 import { AddApplicationSheet } from '@/components/applications/add-application-sheet';
 import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData } from '@/lib/types';
-import { useAuth } from '@/hooks/use-auth';
-import { getApplications, addApplication, updateApplication, deleteApplication } from '@/lib/services/applications';
+import { useAuth } from '@/hooks/use-optimized-auth';
+import { useOptimizedApplications } from '@/hooks/use-optimized-applications';
+import { useOptimizedResumes } from '@/hooks/use-optimized-resumes';
+import { addApplication, updateApplication, deleteApplication } from '@/lib/services/applications';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CompactFastLoader } from '@/components/ui/fast-loader';
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    applications, 
+    loading, 
+    refetch, 
+    invalidateCache,
+    optimisticUpdate,
+    optimisticDelete,
+    optimisticUpdateExisting
+  } = useOptimizedApplications();
+  
+  const { resumes } = useOptimizedResumes();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
-
-  const fetchApplications = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const userApplications = await getApplications(user.uid);
-      setApplications(userApplications);
-    } catch (error) {
-      console.error("Failed to fetch applications", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchApplications();
-  }, [user]);
 
   const handleAddApplication = () => {
     setEditingApplication(null);
@@ -52,25 +47,62 @@ export default function ApplicationsPage() {
 
     try {
       if (editingApplication) {
-        // Update existing application
+        // Optimistic update for existing application
+        const updatedApp: JobApplication = {
+          ...editingApplication,
+          ...appData,
+          last_updated: new Date()
+        };
+        optimisticUpdateExisting(updatedApp);
+        
+        // Update in background
         await updateApplication(user.uid, editingApplication.job_id, appData as UpdateJobApplicationData);
       } else {
-        // Create new application
-        await addApplication(user.uid, appData as CreateJobApplicationData);
+        // Create new application optimistically
+        const newApp: JobApplication = {
+          job_id: `temp_${Date.now()}`, // Temporary ID
+          user_id: user.uid,
+          company_name: appData.company_name || '',
+          job_title: appData.job_title || '',
+          job_link: appData.job_link || '',
+          job_description: appData.job_description || '',
+          resume_id: appData.resume_id || null,
+          status: appData.status || 'Applied',
+          applied_date: appData.applied_date || new Date(),
+          last_updated: new Date()
+        };
+        optimisticUpdate(newApp);
+        
+        // Create in background and update with real ID
+        const realId = await addApplication(user.uid, appData as CreateJobApplicationData);
+        
+        // Update with real ID (remove temp and add with real ID)
+        optimisticDelete(newApp.job_id);
+        const realApp: JobApplication = {
+          ...newApp,
+          job_id: realId
+        };
+        optimisticUpdate(realApp);
       }
-      await fetchApplications(); // Refresh the list
     } catch (error) {
         console.error("Failed to save application", error);
+        // Revert optimistic update on error
+        await refetch();
     }
   };
 
   const handleDeleteApplication = async (jobId: string) => {
       if (!user) return;
+      
+      // Optimistic delete
+      optimisticDelete(jobId);
+      
       try {
           await deleteApplication(user.uid, jobId);
-          await fetchApplications();
       } catch (error) {
           console.error("Failed to delete application", error);
+          // Revert optimistic delete on error
+          await refetch();
       }
   }
 
@@ -88,9 +120,8 @@ export default function ApplicationsPage() {
       </PageHeader>
       
       {loading ? (
-        <div className="space-y-4">
-            <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-64 w-full" />
+        <div className="flex justify-center py-12">
+              <CompactFastLoader />
         </div>
       ) : (
       <Tabs defaultValue="grid">
@@ -102,7 +133,7 @@ export default function ApplicationsPage() {
           <ApplicationGridView applications={applications} onEdit={handleEditApplication} />
         </TabsContent>
         <TabsContent value="list" className="mt-6">
-          <ApplicationListView applications={applications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} />
+          <OptimizedApplicationListView applications={applications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} resumes={resumes} />
         </TabsContent>
       </Tabs>
       )}
@@ -112,6 +143,7 @@ export default function ApplicationsPage() {
         onOpenChange={setIsSheetOpen}
         application={editingApplication}
         onSave={handleSaveApplication}
+        resumes={resumes}
       />
     </div>
   );

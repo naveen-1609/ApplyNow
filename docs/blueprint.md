@@ -1,4 +1,4 @@
-# **App Name**: CareerPilot
+# **App Name**: Application Console
 
 ## Core Features:
 

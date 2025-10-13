@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -16,7 +17,6 @@ import {
 } from '@/components/ui/chart';
 import { Pie, PieChart, Cell } from 'recharts';
 import type { JobApplication, JobApplicationStatus } from '@/lib/types';
-import { useMemo } from 'react';
 
 const statusColors: Record<JobApplicationStatus, string> = {
     Applied: 'hsl(var(--chart-1))',
@@ -26,7 +26,11 @@ const statusColors: Record<JobApplicationStatus, string> = {
     Ghosted: 'hsl(var(--chart-5))',
 };
 
-export function StatusBreakdownChart({ applications }: { applications: JobApplication[] }) {
+export const StatusBreakdownChart = memo(function StatusBreakdownChart({ 
+  applications 
+}: { 
+  applications: JobApplication[] 
+}) {
   const data = useMemo(() => {
     if (!applications) return [];
     const statusCounts = applications.reduce((acc, app) => {
@@ -76,4 +80,4 @@ export function StatusBreakdownChart({ applications }: { applications: JobApplic
       </CardContent>
     </Card>
   );
-}
+});

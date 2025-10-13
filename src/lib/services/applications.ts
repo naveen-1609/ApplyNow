@@ -10,6 +10,7 @@ import {
   doc,
   Timestamp,
   where,
+  orderBy,
   type DocumentData,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
@@ -39,12 +40,21 @@ const fromFirestore = (doc: QueryDocumentSnapshot<DocumentData>): JobApplication
     };
 };
 
-// Get all applications for a user
+// Get all applications for a user with optimized query
 export const getApplications = async (userId: string): Promise<JobApplication[]> => {
-    const applicationsCol = getApplicationsCollection();
-    const q = query(applicationsCol, where('user_id', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(fromFirestore);
+    try {
+        const applicationsCol = getApplicationsCollection();
+        const q = query(
+            applicationsCol, 
+            where('user_id', '==', userId),
+            orderBy('last_updated', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(fromFirestore);
+    } catch (error) {
+        console.error('Error fetching applications:', error);
+        return [];
+    }
 };
 
 // Add a new job application

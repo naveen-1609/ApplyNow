@@ -7,7 +7,7 @@ import { SetTargetCard } from '@/components/targets/set-target-card';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-optimized-auth';
 import type { JobApplication, Target } from '@/lib/types';
 import { getApplications } from '@/lib/services/applications';
 import { getUserSettings } from '@/lib/services/users';

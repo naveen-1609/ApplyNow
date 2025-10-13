@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-optimized-auth';
 import { Logo } from '@/components/icons/logo';
 import { useToast } from '@/hooks/use-toast';
 
@@ -57,7 +57,7 @@ export default function SignupPage() {
             <Logo className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Create an Account</CardTitle>
-          <CardDescription>Join CareerPilot to start your journey.</CardDescription>
+          <CardDescription>Join Application Console to start your journey.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleEmailSignup} className="space-y-4">

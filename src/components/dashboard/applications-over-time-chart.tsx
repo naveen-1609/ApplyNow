@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -24,16 +25,43 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-export function ApplicationsOverTimeChart({ applications }: { applications: JobApplication[] }) {
-  const data = Array.from({ length: 30 }).map((_, i) => {
-    const date = subDays(new Date(), 29 - i);
-    return {
-      date: format(date, 'MMM d'),
-      applications: applications.filter(
-        (app) => format(app.applied_date, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
-      ).length,
-    };
-  });
+export const ApplicationsOverTimeChart = memo(function ApplicationsOverTimeChart({ 
+  applications 
+}: { 
+  applications: JobApplication[] 
+}) {
+  const data = useMemo(() => {
+    if (!applications || applications.length === 0) {
+      return Array.from({ length: 30 }).map((_, i) => {
+        const date = subDays(new Date(), 29 - i);
+        return {
+          date: format(date, 'MMM d'),
+          applications: 0,
+        };
+      });
+    }
+
+    // Pre-calculate date strings for better performance
+    const dateStrings = Array.from({ length: 30 }).map((_, i) => {
+      const date = subDays(new Date(), 29 - i);
+      return {
+        date: format(date, 'MMM d'),
+        dateString: format(date, 'yyyy-MM-dd'),
+      };
+    });
+
+    // Create a map of applications by date for O(1) lookup
+    const applicationsByDate = applications.reduce((acc, app) => {
+      const dateString = format(app.applied_date, 'yyyy-MM-dd');
+      acc[dateString] = (acc[dateString] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return dateStrings.map(({ date, dateString }) => ({
+      date,
+      applications: applicationsByDate[dateString] || 0,
+    }));
+  }, [applications]);
 
   return (
     <Card>
@@ -59,4 +87,4 @@ export function ApplicationsOverTimeChart({ applications }: { applications: JobA
       </CardContent>
     </Card>
   );
-}
+});

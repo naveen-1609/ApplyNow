@@ -21,8 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
-import { getResumes } from '@/lib/services/resumes';
-import { useAuth } from '@/hooks/use-auth';
+// Removed duplicate imports - resumes now passed as prop
 import type { JobApplication, JobApplicationStatus, Resume } from '@/lib/types';
 import {
     AlertDialog,
@@ -44,20 +43,14 @@ const statusStyles: Record<JobApplicationStatus, string> = {
 };
 
 
-export function ApplicationListView({ applications, onEdit, onDelete }: { applications: JobApplication[], onEdit: (app: JobApplication) => void; onDelete: (jobId: string) => void }) {
-  const { user } = useAuth();
-  const [resumes, setResumes] = useState<Resume[]>([]);
+export function ApplicationListView({ applications, onEdit, onDelete, resumes = [] }: { 
+  applications: JobApplication[], 
+  onEdit: (app: JobApplication) => void; 
+  onDelete: (jobId: string) => void;
+  resumes?: Resume[]; // Accept resumes as prop to avoid duplicate API calls
+}) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [applicationToDelete, setApplicationToDelete] = useState<string | null>(null);
-
-  useEffect(() => {
-      const fetchResumes = async () => {
-          if (user) {
-              setResumes(await getResumes(user.uid));
-          }
-      };
-      fetchResumes();
-  }, [user]);
 
   const getResumeName = (resumeId: string | null) => {
     if (!resumeId) return 'No resume';

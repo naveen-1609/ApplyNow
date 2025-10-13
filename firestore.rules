@@ -1,31 +1,43 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow authenticated users to read/write their own user document
+    // Users can only access their own profile
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
     
-    // Allow authenticated users to manage their resumes
-    match /resumes/{resumeId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+    // Users can only access their own notes
+    match /users/{userId}/notes/{noteId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow public read access for shared notes
+      allow read: if resource.data.shared == true;
     }
     
-    // Allow authenticated users to manage their job applications
+    // Users can only access their own note versions
+    match /users/{userId}/notes/{noteId}/versions/{versionId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users can only access their own job applications
     match /job_applications/{applicationId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
     }
     
-    // Allow authenticated users to manage their targets
+    // Users can only access their own resumes
+    match /resumes/{resumeId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+    }
+    
+    // Users can only access their own targets
     match /targets/{targetId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
     }
     
-    // Allow authenticated users to manage their schedules
+    // Users can only access their own schedules
     match /schedules/{scheduleId} {
       allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;

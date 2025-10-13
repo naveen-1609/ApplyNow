@@ -26,9 +26,8 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
-import { useAuth } from '@/hooks/use-auth';
-import type { Resume } from '@/lib/types';
-import { getResumes } from '@/lib/services/resumes';
+import { useAuth } from '@/hooks/use-optimized-auth';
+import { useResumes } from '@/hooks/use-resumes';
 
 
 type ChatMessage = {
@@ -38,8 +37,8 @@ type ChatMessage = {
 
 export function AtsCheckerTool() {
   const { user } = useAuth();
+  const { resumes } = useResumes();
   const [jobDescription, setJobDescription] = useState('');
-  const [resumes, setResumes] = useState<Resume[]>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
@@ -50,18 +49,12 @@ export function AtsCheckerTool() {
   const [userMessage, setUserMessage] = useState('');
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
+  // Set default resume when resumes are loaded
   useEffect(() => {
-    const fetchResumes = async () => {
-        if(user) {
-            const userResumes = await getResumes(user.uid);
-            setResumes(userResumes);
-            if (userResumes.length > 0) {
-                setSelectedResumeId(userResumes[0].resume_id);
-            }
-        }
+    if (resumes.length > 0 && !selectedResumeId) {
+      setSelectedResumeId(resumes[0].resume_id);
     }
-    fetchResumes();
-  }, [user]);
+  }, [resumes, selectedResumeId]);
 
   useEffect(() => {
     if (chatContainerRef.current) {

@@ -32,8 +32,8 @@ import type { JobApplication, JobApplicationStatus, CreateJobApplicationData, Up
 import { ALL_STATUSES } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { getResumes } from '@/lib/services/resumes';
-import { useAuth } from '@/hooks/use-auth';
+// Removed getResumes import - resumes now passed as prop
+import { useAuth } from '@/hooks/use-optimized-auth';
 
 type AddApplicationSheetProps = {
   isOpen: boolean;
@@ -47,7 +47,8 @@ export function AddApplicationSheet({
   onOpenChange,
   application,
   onSave,
-}: AddApplicationSheetProps) {
+  resumes = [], // Accept resumes as prop to avoid duplicate API calls
+}: AddApplicationSheetProps & { resumes?: Resume[] }) {
     const { toast } = useToast();
     const { user } = useAuth();
     const [title, setTitle] = useState('');
@@ -57,35 +58,29 @@ export function AddApplicationSheet({
     const [resumeId, setResumeId] = useState<string>();
     const [status, setStatus] = useState<JobApplicationStatus>('Applied');
     const [appliedDate, setAppliedDate] = useState<Date | undefined>(new Date());
-    const [resumes, setResumes] = useState<Resume[]>([]);
     
     useEffect(() => {
-        const fetchResumes = async () => {
-            if (user && isOpen) {
-                const userResumes = await getResumes(user.uid);
-                setResumes(userResumes);
-                if (application) {
-                    setTitle(application.job_title);
-                    setCompany(application.company_name);
-                    setLink(application.job_link);
-                    setDescription(application.job_description);
-                    setResumeId(application.resume_id || undefined);
-                    setStatus(application.status);
-                    setAppliedDate(application.applied_date);
-                } else {
-                    // Reset form for new application
-                    setTitle('');
-                    setCompany('');
-                    setLink('');
-                    setDescription('');
-                    setResumeId(userResumes[0]?.resume_id);
-                    setStatus('Applied');
-                    setAppliedDate(new Date());
-                }
+        if (isOpen) {
+            if (application) {
+                setTitle(application.job_title);
+                setCompany(application.company_name);
+                setLink(application.job_link);
+                setDescription(application.job_description);
+                setResumeId(application.resume_id || undefined);
+                setStatus(application.status);
+                setAppliedDate(application.applied_date);
+            } else {
+                // Reset form for new application
+                setTitle('');
+                setCompany('');
+                setLink('');
+                setDescription('');
+                setResumeId(resumes[0]?.resume_id);
+                setStatus('Applied');
+                setAppliedDate(new Date());
             }
-        };
-        fetchResumes();
-    }, [application, isOpen, user]);
+        }
+    }, [application, isOpen, resumes]);
 
     const handleSave = () => {
         if (!title || !company || !appliedDate) {

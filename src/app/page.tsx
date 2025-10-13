@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-optimized-auth';
 import { Logo } from '@/components/icons/logo';
 import { useToast } from '@/hooks/use-toast';
 
@@ -18,11 +18,12 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
-  useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
+  // Remove duplicate navigation - handled by auth hook
+  // useEffect(() => {
+  //   if (user) {
+  //     router.push('/dashboard');
+  //   }
+  // }, [user, router]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +49,7 @@ export default function LoginPage() {
             <Logo className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Welcome Back</CardTitle>
-          <CardDescription>Sign in to your CareerPilot account.</CardDescription>
+          <CardDescription>Sign in to your Application Console account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleEmailLogin} className="space-y-4">

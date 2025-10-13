@@ -11,6 +11,7 @@ import {
   getDoc,
   query,
   where,
+  orderBy,
 } from 'firebase/firestore';
 import type { Resume } from '@/lib/types';
 import { extractTextFromFile } from '@/lib/services/pdf-parser';
@@ -35,11 +36,20 @@ const fromFirestore = (doc: any): Resume => {
 }
 
 export const getResumes = async (userId: string): Promise<Resume[]> => {
-    if (!db) return [];
-    const resumesCol = getResumesCollection();
-    const q = query(resumesCol, where('user_id', '==', userId));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(fromFirestore);
+    try {
+        if (!db) return [];
+        const resumesCol = getResumesCollection();
+        const q = query(
+            resumesCol, 
+            where('user_id', '==', userId),
+            orderBy('created_at', 'desc')
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(fromFirestore);
+    } catch (error) {
+        console.error('Error fetching resumes:', error);
+        return [];
+    }
 };
 
 export const addResume = async (userId: string, resumeName: string, file: File): Promise<string> => {

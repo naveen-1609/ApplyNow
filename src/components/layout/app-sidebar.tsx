@@ -22,8 +22,9 @@ import {
   Settings,
   LogOut,
   ScanSearch,
+  User,
 } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-optimized-auth';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -31,6 +32,7 @@ const navItems = [
   { href: '/resumes', icon: FileText, label: 'Resumes' },
   { href: '/ats-checker', icon: ScanSearch, label: 'ATS Checker' },
   { href: '/targets', icon: Target, label: 'Targets' },
+  { href: '/profile', icon: User, label: 'Profile' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -45,7 +47,7 @@ export function AppSidebar() {
       <SidebarHeader>
         <div className="flex items-center gap-2">
           <Logo className="size-8" />
-          <h1 className="font-headline text-xl font-bold">CareerPilot</h1>
+          <h1 className="font-headline text-xl font-bold">Application Console</h1>
         </div>
       </SidebarHeader>
       <SidebarContent className="p-2">

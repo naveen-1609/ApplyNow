@@ -4,6 +4,7 @@ import { getFirestore, collection, getDocs, query, where, Timestamp } from 'fire
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import type { JobApplication, Schedule, Target } from '@/lib/types';
 import { format } from 'date-fns';
+import sgMail from '@sendgrid/mail';
 
 // Ensure Firebase is initialized for server-side use
 const firebaseConfig = {
@@ -20,6 +21,11 @@ if (getApps().length === 0 && firebaseConfig.projectId) {
 }
 
 const db = getFirestore();
+
+// Initialize SendGrid
+if (process.env.SENDGRID_API_KEY) {
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+}
 
 // Email template variables
 export interface EmailVariables {
@@ -85,22 +91,39 @@ function replaceTemplateVariables(template: string, variables: EmailVariables): 
     .replace(/\{\{motivational_message\}\}/g, variables.motivational_message);
 }
 
-// Send email (placeholder - in production, integrate with email service like SendGrid, Resend, etc.)
+// Send email using SendGrid
 async function sendEmail(to: string, subject: string, content: string): Promise<boolean> {
   try {
-    // TODO: Replace with actual email service integration
-    // For now, we'll just log the email content
-    console.log('='.repeat(50));
-    console.log(`EMAIL TO: ${to}`);
-    console.log(`SUBJECT: ${subject}`);
-    console.log('CONTENT:');
-    console.log(content);
-    console.log('='.repeat(50));
-    
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    return true;
+    if (!process.env.SENDGRID_API_KEY) {
+      console.warn('SendGrid API key not configured. Email not sent.');
+      return false;
+    }
+
+    // Use domain email address
+    const fromEmail = 'info@appconsole.tech';
+
+    const msg = {
+      to,
+      from: {
+        email: fromEmail,
+        name: 'Application Console'
+      },
+      subject,
+      html: content,
+    };
+
+    try {
+      await sgMail.send(msg);
+      console.log(`Email sent successfully to ${to} from ${fromEmail}`);
+      return true;
+    } catch (error) {
+      // If verification error, provide helpful message
+      if ((error as any).response?.body?.errors?.[0]?.message?.includes('verified Sender Identity')) {
+        console.error('❌ Domain not authenticated. Please authenticate appconsole.tech in SendGrid Dashboard → Settings → Sender Authentication');
+        return false;
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Failed to send email:', error);
     return false;
@@ -128,7 +151,7 @@ Applications made today: {{applications_today}}
 Remember: Consistency is key to landing your dream job. You've got this! 💪
 
 Best regards,
-CareerPilot`;
+Application Console`;
 
     const content = replaceTemplateVariables(template, variables);
     const subject = `🌅 Daily Job Search Reminder - ${format(new Date(), 'MMM d, yyyy')}`;
@@ -165,7 +188,7 @@ Here's your daily job search summary:
 Keep up the great work! Every application brings you closer to your goal. 🚀
 
 Best regards,
-CareerPilot`;
+Application Console`;
 
     const content = replaceTemplateVariables(template, variables);
     const subject = `🌙 Daily Job Search Summary - ${format(new Date(), 'MMM d, yyyy')}`;

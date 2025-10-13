@@ -1,60 +1,71 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { ResumeCard } from '@/components/resumes/resume-card';
 import { UploadResumeDialog } from '@/components/resumes/upload-resume-dialog';
-import { useAuth } from '@/hooks/use-auth';
-import { getResumes, deleteResume, updateResumeText } from '@/lib/services/resumes';
-import type { Resume } from '@/lib/types';
+import { useAuth } from '@/hooks/use-optimized-auth';
+import { useOptimizedResumes } from '@/hooks/use-optimized-resumes';
+import { deleteResume, updateResumeText } from '@/lib/services/resumes';
 import { Skeleton } from '@/components/ui/skeleton';
+import { CompactFastLoader } from '@/components/ui/fast-loader';
+import type { Resume } from '@/lib/types';
 
 export default function ResumesPage() {
   const { user } = useAuth();
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { 
+    resumes, 
+    loading, 
+    refetch, 
+    invalidateCache,
+    optimisticUpdate,
+    optimisticDelete,
+    optimisticUpdateExisting
+  } = useOptimizedResumes();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-
-  const fetchResumes = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const userResumes = await getResumes(user.uid);
-      setResumes(userResumes);
-    } catch (error) {
-      console.error("Failed to fetch resumes", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchResumes();
-  }, [user]);
   
   const handleUploadSuccess = () => {
-      fetchResumes();
+      // Let the upload dialog handle optimistic updates
+      invalidateCache();
+      refetch();
   };
 
   const handleDeleteResume = async (resumeId: string) => {
     if (!user) return;
+    
+    // Optimistic delete
+    optimisticDelete(resumeId);
+    
     try {
         await deleteResume(user.uid, resumeId);
-        fetchResumes();
     } catch (error) {
         console.error("Failed to delete resume", error);
+        // Revert optimistic delete on error
+        await refetch();
     }
   };
   
   const handleUpdateResumeText = async (resumeId: string, newText: string) => {
     if (!user) return;
+    
+    // Find the resume to update optimistically
+    const resumeToUpdate = resumes.find(r => r.resume_id === resumeId);
+    if (resumeToUpdate) {
+      const updatedResume: Resume = {
+        ...resumeToUpdate,
+        editable_text: newText
+      };
+      optimisticUpdateExisting(updatedResume);
+    }
+    
     try {
         await updateResumeText(user.uid, resumeId, newText);
-        fetchResumes();
     } catch(error) {
         console.error("Failed to update resume text", error);
+        // Revert optimistic update on error
+        await refetch();
     }
   };
 
@@ -71,8 +82,8 @@ export default function ResumesPage() {
       </PageHeader>
 
       {loading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-56" />)}
+        <div className="flex justify-center py-12">
+              <CompactFastLoader />
         </div>
       ) : resumes.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

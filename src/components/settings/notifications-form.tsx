@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-optimized-auth';
 import { getUserSettings, updateUserSettings } from '@/lib/services/users';
 import type { Schedule } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -30,7 +30,7 @@ Applications made today: {{applications_today}}
 Remember: Consistency is key to landing your dream job. You've got this! 💪
 
 Best regards,
-CareerPilot`,
+Application Console`,
   summary_email_template: `Good evening! 🌙
 
 Here's your daily job search summary:
