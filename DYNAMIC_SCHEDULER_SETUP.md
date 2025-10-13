@@ -8,7 +8,7 @@ The `api-scheduler.js` now connects to your Application Console API to get real-
 
 ### Step 1: Get Your User ID
 
-1. Open your Application Console app in browser: http://localhost:9002
+1. Open your Application Console app in browser: https://appconsole.tech
 2. Log in to your account
 3. Open Developer Tools (F12)
 4. Go to Console tab
@@ -76,7 +76,7 @@ node api-scheduler.js
 ### Manual Email Test
 You can still manually trigger emails for testing:
 ```bash
-curl -X POST http://localhost:9002/api/scheduler/trigger \
+curl -X POST https://appconsole.tech/api/scheduler/trigger \
   -H "Content-Type: application/json" \
   -d '{"userId":"your-user-id","type":"reminder"}'
 ```
@@ -84,7 +84,7 @@ curl -X POST http://localhost:9002/api/scheduler/trigger \
 ## 🔧 Troubleshooting
 
 ### "API request failed"
-- Make sure your Application Console app is running on http://localhost:9002
+- Make sure your Application Console app is running on https://appconsole.tech
 - Check that you're using the correct user ID
 
 ### "User not found"

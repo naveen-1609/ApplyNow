@@ -65,7 +65,7 @@ Once domain is authenticated, you'll be able to send from:
 ## 🧪 Testing
 
 ### Test in Application Console:
-1. Go to http://localhost:9002
+1. Go to https://appconsole.tech
 2. Sign up/Login
 3. Go to Settings → Notifications
 4. Enable email notifications

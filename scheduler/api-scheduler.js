@@ -218,7 +218,7 @@ async function getUserSettings() {
     console.log(`📡 Fetching settings from Application Console API for user: ${userId}`);
     
     // Use environment variable for app URL, fallback to localhost for development
-    const appUrl = process.env.APP_URL || 'http://localhost:9002';
+    const appUrl = process.env.APP_URL || 'https://appconsole.tech';
     const response = await fetchWithRetry(`${appUrl}/api/scheduler/settings?userId=${userId}`);
     
     if (!response.ok) {
@@ -248,7 +248,7 @@ async function getUserSettings() {
   } catch (error) {
     console.error('❌ Failed to get user settings from API:', error.message);
     console.log('💡 Falling back to mock data. To fix this:');
-    console.log(`   1. Make sure your Application Console app is running on ${process.env.APP_URL || 'http://localhost:9002'}`);
+    console.log(`   1. Make sure your Application Console app is running on ${process.env.APP_URL || 'https://appconsole.tech'}`);
     console.log('   2. Replace "current-user" with your actual Firebase user ID');
     console.log('   3. Check that the API endpoint is working');
     console.log('   4. Verify APP_URL environment variable is set correctly');

@@ -8,7 +8,7 @@ async function testAPIConnection() {
   try {
     // Test 1: Check if the app is running
     console.log('1️⃣ Testing if Application Console is running...');
-    const healthResponse = await fetch('http://localhost:9002/api/scheduler/settings', {
+    const healthResponse = await fetch('https://appconsole.tech/api/scheduler/settings', {
       method: 'POST'
     });
     
@@ -24,7 +24,7 @@ async function testAPIConnection() {
     console.log('2️⃣ Testing settings API with mock user...');
     
     // Test 2: Try to get settings (this will fail with current-user, but that's expected)
-    const settingsResponse = await fetch('http://localhost:9002/api/scheduler/settings?userId=current-user');
+    const settingsResponse = await fetch('https://appconsole.tech/api/scheduler/settings?userId=current-user');
     
     if (settingsResponse.ok) {
       const settingsData = await settingsResponse.json();
@@ -51,7 +51,7 @@ async function testAPIConnection() {
     console.log('');
     console.log('🔧 TROUBLESHOOTING:');
     console.log('   1. Make sure your Application Console app is running: npm run dev');
-    console.log('   2. Check that it\'s running on http://localhost:9002');
+    console.log('   2. Check that it\'s running on https://appconsole.tech');
     console.log('   3. Wait for the app to fully load before testing');
   }
 }

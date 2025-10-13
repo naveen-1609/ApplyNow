@@ -74,12 +74,12 @@ onSnapshot(usersQuery, (snapshot) => {
 
 ### **Initialize the Scheduler:**
 ```bash
-curl -X POST http://localhost:9002/api/scheduler/init
+curl -X POST https://appconsole.tech/api/scheduler/init
 ```
 
 ### **Test Manual Trigger:**
 ```bash
-curl -X POST http://localhost:9002/api/scheduler/trigger \
+curl -X POST https://appconsole.tech/api/scheduler/trigger \
   -H "Content-Type: application/json" \
   -d '{"userId": "your-user-id", "type": "summary"}'
 ```
@@ -122,7 +122,7 @@ curl -X POST http://localhost:9002/api/scheduler/trigger \
 ### **1. Initialize the Dynamic Scheduler:**
 ```bash
 # Start the dynamic scheduler
-curl -X POST http://localhost:9002/api/scheduler/init
+curl -X POST https://appconsole.tech/api/scheduler/init
 ```
 
 ### **2. Test Your Current Schedule:**

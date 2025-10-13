@@ -217,7 +217,7 @@ async function getUserSettings() {
     
     console.log(`📡 Fetching settings from Application Console API for user: ${userId}`);
     
-    const response = await fetchWithRetry(`http://localhost:9002/api/scheduler/settings?userId=${userId}`);
+    const response = await fetchWithRetry(`https://appconsole.tech/api/scheduler/settings?userId=${userId}`);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -246,7 +246,7 @@ async function getUserSettings() {
   } catch (error) {
     console.error('❌ Failed to get user settings from API:', error.message);
     console.log('💡 Falling back to mock data. To fix this:');
-    console.log('   1. Make sure your Application Console app is running on http://localhost:9002');
+    console.log('   1. Make sure your Application Console app is running on https://appconsole.tech');
     console.log('   2. Replace "current-user" with your actual Firebase user ID');
     console.log('   3. Check that the API endpoint is working');
     

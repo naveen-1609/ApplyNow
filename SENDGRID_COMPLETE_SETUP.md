@@ -56,7 +56,7 @@ Once sender verification is complete:
    ```
 
 2. **Test in the application:**
-   - Go to http://localhost:9002
+   - Go to https://appconsole.tech
    - Sign up/Login to Application Console
    - Go to Settings → Notifications
    - Enable email notifications
