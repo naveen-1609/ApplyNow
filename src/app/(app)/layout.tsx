@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-optimized-auth';
 import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { FullScreenInstantLoader } from '@/components/ui/instant-loader';
+import { CacheMonitor } from '@/components/debug/cache-monitor';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -41,6 +42,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <SidebarInset>
         <div className="p-4 sm:p-6 lg:p-8">{children}</div>
       </SidebarInset>
+      <CacheMonitor />
     </SidebarProvider>
   );
 }

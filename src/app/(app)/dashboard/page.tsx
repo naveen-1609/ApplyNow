@@ -6,14 +6,14 @@ import { Briefcase, ThumbsUp, ThumbsDown, FileText } from 'lucide-react';
 import { ApplicationsOverTimeChart } from '@/components/dashboard/applications-over-time-chart';
 import { StatusBreakdownChart } from '@/components/dashboard/status-breakdown-chart';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { useOptimizedParallelData } from '@/hooks/use-optimized-parallel-data';
+import { useGlobalData } from '@/hooks/use-global-data';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompactInstantLoader } from '@/components/ui/instant-loader';
 import { LoadingMonitor } from '@/components/performance/loading-monitor';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { applications, loading, stats } = useOptimizedParallelData();
+  const { applications, loading, stats } = useGlobalData();
 
   const displayName = user?.displayName?.split(' ')[0] || 'there';
 

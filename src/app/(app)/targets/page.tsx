@@ -8,43 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
 import { useAuth } from '@/hooks/use-optimized-auth';
+import { useGlobalData } from '@/hooks/use-global-data';
 import type { JobApplication, Target } from '@/lib/types';
-import { getApplications } from '@/lib/services/applications';
-import { getUserSettings } from '@/lib/services/users';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function TargetsPage() {
   const { user } = useAuth();
-  const [applications, setApplications] = useState<JobApplication[]>([]);
-  const [target, setTarget] = useState<Target>({ daily_target: 3 });
-  const [loading, setLoading] = useState(true);
+  const { applications, todayTarget, loading, refetch } = useGlobalData();
 
-  const fetchData = async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const [apps, settings] = await Promise.all([
-        getApplications(user.uid),
-        getUserSettings(user.uid),
-      ]);
-      setApplications(apps);
-      if (settings.target) {
-        setTarget(settings.target);
-      }
-    } catch (error) {
-      console.error("Failed to fetch target data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, [user]);
+  const target = todayTarget || { daily_target: 3 };
   
   const handleTargetSaved = () => {
     // Refetch data when target is updated
-    fetchData();
+    refetch();
   };
 
   const todayString = format(new Date(), 'yyyy-MM-dd');
