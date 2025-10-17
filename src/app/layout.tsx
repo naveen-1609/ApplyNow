@@ -4,8 +4,8 @@ import { Toaster } from '@/components/ui/toaster';
 import { OptimizedAuthProvider } from '@/hooks/use-optimized-auth';
 
 export const metadata: Metadata = {
-  title: 'Application Console',
-  description: 'Your comprehensive job application management platform.',
+  title: 'ApplyNow - Land Your Dream Job',
+  description: 'The ultimate job application management platform that helps you organize, optimize, and accelerate your career journey with AI-powered insights.',
   icons: {
     icon: [
       { url: '/favicon.svg', type: 'image/svg+xml' },

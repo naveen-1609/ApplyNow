@@ -174,9 +174,15 @@ Application Console`;
 
 // Enhanced user settings with caching and non-blocking operations
 const settingsCache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes (reduced for more dynamic updates)
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
+
+// Function to clear cache (useful for testing)
+function clearSettingsCache() {
+  settingsCache.clear();
+  console.log('🗑️  Settings cache cleared');
+}
 
 // Non-blocking fetch with retry logic
 async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
@@ -250,13 +256,13 @@ async function getUserSettings() {
     console.log('   2. Replace "current-user" with your actual Firebase user ID');
     console.log('   3. Check that the API endpoint is working');
     
-    // Fallback to mock data if API fails
+    // Fallback to mock data if API fails - Updated with correct default times
     const fallbackData = {
       userId: 'current-user',
       email: 'naveenvenkat58@gmail.com',
       schedule: {
-        reminder_time: '07:55',
-        summary_time: '20:01',
+        reminder_time: '06:00', // 6 AM reminder
+        summary_time: '22:00',  // 10 PM summary
         email_enabled: true,
         reminder_email_template: `Good morning! 🌅
 
@@ -328,6 +334,25 @@ function queueEmailTask(emailTask) {
   setImmediate(processEmailQueue);
 }
 
+// Get all users who have email notifications enabled
+async function getAllUsersWithEmailEnabled() {
+  try {
+    // For now, we'll use a single user approach, but this can be extended
+    // to fetch all users from your database
+    const userId = 'current-user'; // TODO: Replace with actual user ID or implement user discovery
+    
+    const user = await getUserSettings();
+    if (user && user.schedule.email_enabled) {
+      return [user];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ Error fetching users:', error);
+    return [];
+  }
+}
+
 // Check and send emails based on user settings (non-blocking)
 async function checkAndSendEmails() {
   const now = new Date();
@@ -337,31 +362,35 @@ async function checkAndSendEmails() {
   console.log(`🕰️  Checking emails at ${currentTime}`);
   
   try {
-    // Get user settings asynchronously without blocking
-    const user = await getUserSettings();
-    if (!user || !user.schedule.email_enabled) {
-      console.log('⚠️  No user found or email notifications disabled');
+    // Get all users with email notifications enabled
+    const users = await getAllUsersWithEmailEnabled();
+    
+    if (users.length === 0) {
+      console.log('⚠️  No users found with email notifications enabled');
       return;
     }
     
-    console.log(`👤 Checking user: reminder=${user.schedule.reminder_time}, summary=${user.schedule.summary_time}`);
-    
-    // Check if it's time for reminder email
-    if (user.schedule.reminder_time === currentTime) {
-      console.log(`📧 Time for reminder email! Queuing for ${user.email}...`);
-      queueEmailTask(async () => {
-        console.log(`📧 Sending reminder email to ${user.email}...`);
-        await sendReminderEmail(user.email, user.schedule, user.target);
-      });
-    }
-    
-    // Check if it's time for summary email
-    if (user.schedule.summary_time === currentTime) {
-      console.log(`📧 Time for summary email! Queuing for ${user.email}...`);
-      queueEmailTask(async () => {
-        console.log(`📧 Sending summary email to ${user.email}...`);
-        await sendSummaryEmail(user.email, user.schedule, user.target);
-      });
+    // Check each user for scheduled emails
+    for (const user of users) {
+      console.log(`👤 Checking user ${user.email}: reminder=${user.schedule.reminder_time}, summary=${user.schedule.summary_time}`);
+      
+      // Check if it's time for reminder email
+      if (user.schedule.reminder_time === currentTime) {
+        console.log(`📧 Time for reminder email! Queuing for ${user.email}...`);
+        queueEmailTask(async () => {
+          console.log(`📧 Sending reminder email to ${user.email}...`);
+          await sendReminderEmail(user.email, user.schedule, user.target);
+        });
+      }
+      
+      // Check if it's time for summary email
+      if (user.schedule.summary_time === currentTime) {
+        console.log(`📧 Time for summary email! Queuing for ${user.email}...`);
+        queueEmailTask(async () => {
+          console.log(`📧 Sending summary email to ${user.email}...`);
+          await sendSummaryEmail(user.email, user.schedule, user.target);
+        });
+      }
     }
   } catch (error) {
     console.error('❌ Error checking scheduled emails:', error);
@@ -406,7 +435,74 @@ async function displayCurrentConfiguration() {
 }
 // Run immediately to check current time
 checkAndSendEmails();
+// Function to help users find their user ID
+function displayUserIDInstructions() {
+  console.log('');
+  console.log('🔍 TO FIND YOUR USER ID:');
+  console.log('   1. Open your Application Console app in your browser');
+  console.log('   2. Open Developer Tools (F12)');
+  console.log('   3. Go to Console tab');
+  console.log('   4. Type: firebase.auth().currentUser.uid');
+  console.log('   5. Copy the user ID that appears');
+  console.log('   6. Replace "current-user" in this file with your actual user ID');
+  console.log('');
+  console.log('💡 ALTERNATIVE: Check your browser\'s Network tab when loading the app');
+  console.log('   Look for API calls that include your user ID in the URL');
+  console.log('');
+}
+
+// Test function to manually send emails (for testing purposes)
+async function testEmailSending() {
+  console.log('');
+  console.log('🧪 TESTING EMAIL SENDING...');
+  console.log('==================================');
+  
+  try {
+    const user = await getUserSettings();
+    if (!user) {
+      console.log('❌ No user settings found for testing');
+      return;
+    }
+    
+    console.log(`📧 Testing with user: ${user.email}`);
+    console.log(`🌅 Reminder time: ${user.schedule.reminder_time}`);
+    console.log(`🌙 Summary time: ${user.schedule.summary_time}`);
+    
+    // Test reminder email
+    console.log('📧 Sending test reminder email...');
+    const reminderResult = await sendReminderEmail(user.email, user.schedule, user.target);
+    if (reminderResult) {
+      console.log('✅ Test reminder email sent successfully!');
+    } else {
+      console.log('❌ Test reminder email failed');
+    }
+    
+    // Wait a moment before sending summary
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Test summary email
+    console.log('📧 Sending test summary email...');
+    const summaryResult = await sendSummaryEmail(user.email, user.schedule, user.target);
+    if (summaryResult) {
+      console.log('✅ Test summary email sent successfully!');
+    } else {
+      console.log('❌ Test summary email failed');
+    }
+    
+  } catch (error) {
+    console.error('❌ Error during email testing:', error);
+  }
+  
+  console.log('==================================');
+  console.log('');
+}
+
 // Display current configuration
 displayCurrentConfiguration();
+displayUserIDInstructions();
+
+// Uncomment the line below to test email sending immediately
+// testEmailSending();
+
 // Run every minute
 setInterval(checkAndSendEmails, 60000); // 60 seconds = 1 minute
