@@ -207,12 +207,11 @@ async function fetchWithRetry(url, options = {}, retries = MAX_RETRIES) {
 }
 
 // Get user settings from your Application Console API with caching
-async function getUserSettings() {
+async function getUserSettings(userId = null) {
   try {
-    // ⚠️ IMPORTANT: Replace 'current-user' with your actual user ID from Firebase
-    // You can find this in your browser's developer tools when logged into the app
-    const userId = 'current-user'; // TODO: Replace with actual user ID
-    const cacheKey = `settings_${userId}`;
+    // Use environment variable or provided userId, fallback to default
+    const targetUserId = userId || process.env.USER_ID || 'current-user';
+    const cacheKey = `settings_${targetUserId}`;
     
     // Check cache first
     const cached = settingsCache.get(cacheKey);
@@ -221,9 +220,10 @@ async function getUserSettings() {
       return cached.data;
     }
     
-    console.log(`📡 Fetching settings from Application Console API for user: ${userId}`);
+    console.log(`📡 Fetching settings from Application Console API for user: ${targetUserId}`);
     
-    const response = await fetchWithRetry(`https://appconsole.tech/api/scheduler/settings?userId=${userId}`);
+    const appUrl = process.env.APP_URL || 'https://appconsole.tech';
+    const response = await fetchWithRetry(`${appUrl}/api/scheduler/settings?userId=${targetUserId}`);
     
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -253,17 +253,17 @@ async function getUserSettings() {
     console.error('❌ Failed to get user settings from API:', error.message);
     console.log('💡 Falling back to mock data. To fix this:');
     console.log('   1. Make sure your Application Console app is running on https://appconsole.tech');
-    console.log('   2. Replace "current-user" with your actual Firebase user ID');
+    console.log('   2. Set USER_ID environment variable with your actual Firebase user ID');
     console.log('   3. Check that the API endpoint is working');
     
     // Fallback to mock data if API fails - Updated with correct default times
     const fallbackData = {
-      userId: 'current-user',
-      email: 'naveenvenkat58@gmail.com',
+      userId: userId || process.env.USER_ID || 'current-user',
+      email: process.env.USER_EMAIL || 'naveenvenkat58@gmail.com',
       schedule: {
-        reminder_time: '06:00', // 6 AM reminder
-        summary_time: '22:00',  // 10 PM summary
-        email_enabled: true,
+        reminder_time: process.env.REMINDER_TIME || '07:55',
+        summary_time: process.env.SUMMARY_TIME || '20:01',
+        email_enabled: process.env.EMAIL_ENABLED === 'true' || true, // Default to true for testing
         reminder_email_template: `Good morning! 🌅
 
 It's time to focus on your job search goals for today.
@@ -292,7 +292,7 @@ Best regards,
 Application Console`
       },
       target: {
-        daily_target: 5
+        daily_target: parseInt(process.env.DAILY_TARGET) || 5
       }
     };
     
@@ -339,9 +339,9 @@ async function getAllUsersWithEmailEnabled() {
   try {
     // For now, we'll use a single user approach, but this can be extended
     // to fetch all users from your database
-    const userId = 'current-user'; // TODO: Replace with actual user ID or implement user discovery
+    const userId = process.env.USER_ID || 'current-user';
     
-    const user = await getUserSettings();
+    const user = await getUserSettings(userId);
     if (user && user.schedule.email_enabled) {
       return [user];
     }
@@ -438,13 +438,23 @@ checkAndSendEmails();
 // Function to help users find their user ID
 function displayUserIDInstructions() {
   console.log('');
-  console.log('🔍 TO FIND YOUR USER ID:');
+  console.log('🔍 TO CONFIGURE YOUR USER ID:');
   console.log('   1. Open your Application Console app in your browser');
   console.log('   2. Open Developer Tools (F12)');
   console.log('   3. Go to Console tab');
   console.log('   4. Type: firebase.auth().currentUser.uid');
   console.log('   5. Copy the user ID that appears');
-  console.log('   6. Replace "current-user" in this file with your actual user ID');
+  console.log('   6. Set the USER_ID environment variable in Render:');
+  console.log('      - Go to your Render dashboard');
+  console.log('      - Select your scheduler service');
+  console.log('      - Go to Environment tab');
+  console.log('      - Add USER_ID = your_actual_user_id');
+  console.log('   7. Also set these optional environment variables:');
+  console.log('      - USER_EMAIL = your_email@example.com');
+  console.log('      - EMAIL_ENABLED = true');
+  console.log('      - REMINDER_TIME = 07:55');
+  console.log('      - SUMMARY_TIME = 20:01');
+  console.log('      - DAILY_TARGET = 5');
   console.log('');
   console.log('💡 ALTERNATIVE: Check your browser\'s Network tab when loading the app');
   console.log('   Look for API calls that include your user ID in the URL');
@@ -506,3 +516,22 @@ displayUserIDInstructions();
 
 // Run every minute
 setInterval(checkAndSendEmails, 60000); // 60 seconds = 1 minute
+
+// Add HTTP server for Render port binding
+const http = require('http');
+const port = process.env.PORT || 3000;
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify({
+    status: 'running',
+    service: 'API Email Scheduler',
+    timestamp: new Date().toISOString(),
+    message: 'Scheduler is running and checking for emails every minute'
+  }));
+});
+
+server.listen(port, () => {
+  console.log(`🌐 HTTP server listening on port ${port}`);
+  console.log(`📡 Health check available at http://localhost:${port}`);
+});

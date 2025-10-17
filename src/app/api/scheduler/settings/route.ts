@@ -21,10 +21,8 @@ export async function GET(request: NextRequest) {
     const settings = await getUserSettings(userId);
     
     if (!settings) {
-      return NextResponse.json({ 
-        success: false, 
-        error: 'User not found' 
-      }, { status: 404 });
+      console.log(`⚠️  User ${userId} not found, using fallback settings`);
+      // Don't return 404, use fallback settings instead
     }
     
     // Get additional schedule details
@@ -39,7 +37,7 @@ export async function GET(request: NextRequest) {
         schedule: {
           reminder_time: schedule?.reminder_time || '07:55',
           summary_time: schedule?.summary_time || '20:01',
-          email_enabled: schedule?.email_enabled || false,
+          email_enabled: schedule?.email_enabled !== undefined ? schedule.email_enabled : true, // Default to true if no schedule found
           reminder_email_template: schedule?.reminder_email_template || `Good morning! 🌅
 
 It's time to focus on your job search goals for today.
