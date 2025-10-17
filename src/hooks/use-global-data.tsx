@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { getCachedUserData, invalidateUserCache, updateApplicationsCache, updateResumesCache } from '@/lib/services/cached-services';
+import { getCachedUserData, invalidateUserCache } from '@/lib/services/cached-services';
 import { globalCache } from '@/lib/cache/global-cache';
 import type { JobApplication, Resume, User, Target, Schedule } from '@/lib/types';
 
@@ -95,7 +95,7 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     if (!user) return;
     
     console.log('🔄 Refetching global data (bypassing cache)');
-    invalidateUserCache(user.uid);
+    globalCache.clear(); // Clear all caches before refetching
     await fetchData();
   }, [user, fetchData]);
 
@@ -107,7 +107,7 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     }
   }, [user]);
 
-  // Update application in cache and state
+  // Update application in state
   const updateApplication = useCallback((application: JobApplication) => {
     if (!user) return;
     
@@ -118,14 +118,11 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       ),
     }));
     
-    // Update cache
-    const updatedApplications = state.applications.map(app => 
-      app.application_id === application.application_id ? application : app
-    );
-    updateApplicationsCache(user.uid, updatedApplications);
-  }, [user, state.applications]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
-  // Add application to cache and state
+  // Add application to state
   const addApplication = useCallback((application: JobApplication) => {
     if (!user) return;
     
@@ -134,12 +131,11 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       applications: [...prev.applications, application],
     }));
     
-    // Update cache
-    const updatedApplications = [...state.applications, application];
-    updateApplicationsCache(user.uid, updatedApplications);
-  }, [user, state.applications]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
-  // Remove application from cache and state
+  // Remove application from state
   const removeApplication = useCallback((applicationId: string) => {
     if (!user) return;
     
@@ -148,12 +144,11 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       applications: prev.applications.filter(app => app.application_id !== applicationId),
     }));
     
-    // Update cache
-    const updatedApplications = state.applications.filter(app => app.application_id !== applicationId);
-    updateApplicationsCache(user.uid, updatedApplications);
-  }, [user, state.applications]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
-  // Update resume in cache and state
+  // Update resume in state
   const updateResume = useCallback((resume: Resume) => {
     if (!user) return;
     
@@ -164,14 +159,11 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       ),
     }));
     
-    // Update cache
-    const updatedResumes = state.resumes.map(r => 
-      r.resume_id === resume.resume_id ? resume : r
-    );
-    updateResumesCache(user.uid, updatedResumes);
-  }, [user, state.resumes]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
-  // Add resume to cache and state
+  // Add resume to state
   const addResume = useCallback((resume: Resume) => {
     if (!user) return;
     
@@ -180,12 +172,11 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       resumes: [...prev.resumes, resume],
     }));
     
-    // Update cache
-    const updatedResumes = [...state.resumes, resume];
-    updateResumesCache(user.uid, updatedResumes);
-  }, [user, state.resumes]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
-  // Remove resume from cache and state
+  // Remove resume from state
   const removeResume = useCallback((resumeId: string) => {
     if (!user) return;
     
@@ -194,10 +185,9 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
       resumes: prev.resumes.filter(r => r.resume_id !== resumeId),
     }));
     
-    // Update cache
-    const updatedResumes = state.resumes.filter(r => r.resume_id !== resumeId);
-    updateResumesCache(user.uid, updatedResumes);
-  }, [user, state.resumes]);
+    // Invalidate cache to ensure fresh data on next fetch
+    invalidateUserCache(user.uid);
+  }, [user]);
 
   // Fetch data when user changes
   useEffect(() => {

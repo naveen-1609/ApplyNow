@@ -3,67 +3,53 @@
  * Service functions that use global cache to reduce API calls
  */
 
-import { globalCache, GlobalCache } from '@/lib/cache/global-cache';
-import { getApplications as getApplicationsService } from './applications';
-import { getResumes as getResumesService } from './resumes';
-import { getUserSettings as getUserSettingsService } from './users';
+import { globalCache } from '@/lib/cache/global-cache';
+import { getApplications } from './applications';
+import { getResumes } from './resumes';
+import { getUserSettings } from './users';
 import { getTodayTarget } from './targets';
 import { getSchedule } from './schedules';
 import type { JobApplication, Resume, User, Target, Schedule } from '@/lib/types';
+
+const CACHE_TTL_APPLICATIONS = 2 * 60 * 1000; // 2 minutes
+const CACHE_TTL_RESUMES = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_USER_SETTINGS = 1 * 60 * 1000; // 1 minute
+const CACHE_TTL_TODAY_TARGET = 1 * 60 * 1000; // 1 minute
+const CACHE_TTL_SCHEDULES = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Get applications with caching
  */
 export async function getCachedApplications(userId: string): Promise<JobApplication[]> {
-  return globalCache.get(
-    GlobalCache.KEYS.applications(userId),
-    () => getApplicationsService(userId),
-    globalCache['TTL'].APPLICATIONS
-  );
+  return globalCache.get(`applications-${userId}`, () => getApplications(userId), CACHE_TTL_APPLICATIONS);
 }
 
 /**
  * Get resumes with caching
  */
 export async function getCachedResumes(userId: string): Promise<Resume[]> {
-  return globalCache.get(
-    GlobalCache.KEYS.resumes(userId),
-    () => getResumesService(userId),
-    globalCache['TTL'].RESUMES
-  );
+  return globalCache.get(`resumes-${userId}`, () => getResumes(userId), CACHE_TTL_RESUMES);
 }
 
 /**
  * Get user settings with caching
  */
 export async function getCachedUserSettings(userId: string): Promise<User | null> {
-  return globalCache.get(
-    GlobalCache.KEYS.userSettings(userId),
-    () => getUserSettingsService(userId),
-    globalCache['TTL'].USER_SETTINGS
-  );
+  return globalCache.get(`user-settings-${userId}`, () => getUserSettings(userId), CACHE_TTL_USER_SETTINGS);
 }
 
 /**
  * Get today's target with caching
  */
 export async function getCachedTodayTarget(userId: string): Promise<Target | null> {
-  return globalCache.get(
-    GlobalCache.KEYS.todayTarget(userId),
-    () => getTodayTarget(userId),
-    globalCache['TTL'].TARGETS
-  );
+  return globalCache.get(`today-target-${userId}`, () => getTodayTarget(userId), CACHE_TTL_TODAY_TARGET);
 }
 
 /**
  * Get schedule with caching
  */
 export async function getCachedSchedule(userId: string): Promise<Schedule | null> {
-  return globalCache.get(
-    GlobalCache.KEYS.schedules(userId),
-    () => getSchedule(userId),
-    globalCache['TTL'].SCHEDULES
-  );
+  return globalCache.get(`schedule-${userId}`, () => getSchedule(userId), CACHE_TTL_SCHEDULES);
 }
 
 /**
@@ -91,21 +77,11 @@ export async function getCachedUserData(userId: string) {
  * Invalidate user cache
  */
 export function invalidateUserCache(userId: string): void {
-  globalCache.invalidateUser(userId);
-}
-
-/**
- * Update applications cache
- */
-export function updateApplicationsCache(userId: string, applications: JobApplication[]): void {
-  globalCache.set(GlobalCache.KEYS.applications(userId), applications, globalCache['TTL'].APPLICATIONS);
-}
-
-/**
- * Update resumes cache
- */
-export function updateResumesCache(userId: string, resumes: Resume[]): void {
-  globalCache.set(GlobalCache.KEYS.resumes(userId), resumes, globalCache['TTL'].RESUMES);
+  globalCache.invalidate(`applications-${userId}`);
+  globalCache.invalidate(`resumes-${userId}`);
+  globalCache.invalidate(`user-settings-${userId}`);
+  globalCache.invalidate(`today-target-${userId}`);
+  globalCache.invalidate(`schedule-${userId}`);
 }
 
 /**
