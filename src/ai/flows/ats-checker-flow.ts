@@ -67,6 +67,7 @@ const ChatInputSchema = z.object({
   resumeText: z.string().describe('The current text content of the resume.'),
   chatHistory: z.array(ChatHistorySchema).describe('The history of the conversation so far.'),
   userMessage: z.string().describe("The user's latest message."),
+  atsAnalysis: AtsAnalysisOutputSchema.optional().describe('The ATS analysis results to provide context-aware suggestions.'),
 });
 export type ChatInput = z.infer<typeof ChatInputSchema>;
 
@@ -246,13 +247,51 @@ const chatPrompt = ai.definePrompt({
   name: 'resumeChatPrompt',
   input: { schema: ChatInputSchema },
   output: { schema: ChatOutputSchema },
-  prompt: `You are a helpful career assistant. You are chatting with a user who is trying to improve their resume for a specific job.
+  prompt: `You are an expert career coach and ATS specialist. You are chatting with a user who is trying to improve their resume for a specific job. You have access to their ATS analysis results to provide targeted, data-driven advice.
 
   **Job Description:**
   {{{jobDescription}}}
 
   **Current Resume:**
   {{{resumeText}}}
+
+  {{#if atsAnalysis}}
+  **ATS Analysis Results:**
+  - **Overall ATS Score**: {{atsAnalysis.ats_match_score}}/100
+  - **Skills & Tools Score**: {{atsAnalysis.subscores.skills_tools}}/100
+  - **Responsibilities Score**: {{atsAnalysis.subscores.responsibilities}}/100
+  - **Domain/Industry Score**: {{atsAnalysis.subscores.domain_industry}}/100
+  - **Education/Certs Score**: {{atsAnalysis.subscores.education_certs}}/100
+  - **Seniority/Experience Score**: {{atsAnalysis.subscores.seniority_experience}}/100
+  - **Soft Skills Score**: {{atsAnalysis.subscores.soft_skills}}/100
+  - **Formatting/ATS Score**: {{atsAnalysis.subscores.formatting_ats}}/100
+
+  **Role Expectations Summary:**
+  {{atsAnalysis.role_expectations.summary}}
+
+  **Resume Fit Analysis:**
+  - **Found Requirements**: {{#each atsAnalysis.resume_fit.found}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+  - **Partial Requirements**: {{#each atsAnalysis.resume_fit.partial}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+  - **Missing Requirements**: {{#each atsAnalysis.resume_fit.missing}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+
+  **Current Problems:**
+  {{#each atsAnalysis.current_problems}}
+  - {{this}}
+  {{/each}}
+
+  **Improvement Suggestions:**
+  {{#each atsAnalysis.improvement_suggestions}}
+  - {{this}}
+  {{/each}}
+
+  **Predicted Score Improvements:**
+  {{#each atsAnalysis.predicted_score_improvement}}
+  - {{@key}}: {{this}}
+  {{/each}}
+
+  **Fit Summary:**
+  {{atsAnalysis.fit_summary}}
+  {{/if}}
 
   **Conversation History:**
   {{#each chatHistory}}
@@ -262,7 +301,17 @@ const chatPrompt = ai.definePrompt({
   **User's new message:**
   {{userMessage}}
 
-  Based on the user's message, provide a helpful response. You can suggest specific text changes, answer questions, or provide general advice related to the resume and job description. Keep your responses concise and focused on the user's request.`,
+  **Instructions:**
+  Based on the user's message and the ATS analysis results (if available), provide a helpful, targeted response. You should:
+
+  1. **Reference the ATS scores** when relevant to explain why certain changes are important
+  2. **Prioritize suggestions** based on the lowest scoring areas and missing requirements
+  3. **Provide specific, actionable advice** with examples from their resume
+  4. **Explain the impact** of suggested changes on their ATS score
+  5. **Address their specific question** while incorporating insights from the analysis
+  6. **Be encouraging** but honest about areas that need improvement
+
+  Focus on the most impactful changes that will improve their ATS score and job application success. Keep responses concise but comprehensive.`,
 });
 
 

@@ -70,6 +70,27 @@ export function AtsCheckerTool() {
     }
   }, [chatHistory]);
 
+  // Add initial helpful message when ATS analysis is completed
+  useEffect(() => {
+    if (result && chatHistory.length === 0) {
+      const initialMessage: ChatMessage = {
+        role: 'model',
+        content: `Hi! I've analyzed your resume and found it has an ATS score of ${result.ats_match_score}/100. I can help you improve specific areas like:
+
+• **Skills & Tools** (${result.subscores.skills_tools}/100) - ${result.subscores.skills_tools < 70 ? 'Needs improvement' : 'Good'}
+• **Responsibilities** (${result.subscores.responsibilities}/100) - ${result.subscores.responsibilities < 70 ? 'Needs improvement' : 'Good'}
+• **Formatting** (${result.subscores.formatting_ats}/100) - ${result.subscores.formatting_ats < 70 ? 'Needs improvement' : 'Good'}
+
+Ask me anything about improving your resume! For example:
+- "How can I improve my skills section?"
+- "What keywords should I add?"
+- "Help me rewrite my experience bullets"
+- "What's wrong with my formatting?"`
+      };
+      setChatHistory([initialMessage]);
+    }
+  }, [result, chatHistory.length]);
+
 
   const handleAnalyze = async () => {
     if (!jobDescription || !selectedResumeId) {
@@ -136,6 +157,7 @@ export function AtsCheckerTool() {
             resumeText: selectedResume.editable_text,
             chatHistory: [...chatHistory, newUserMessage],
             userMessage: userMessage,
+            atsAnalysis: result, // Include the ATS analysis results
         };
         const { response } = await chatWithResumeAssistant(chatInput);
         setChatHistory(prev => [...prev, { role: 'model', content: response }]);
@@ -533,7 +555,12 @@ export function AtsCheckerTool() {
             <Card className="flex flex-col h-[600px]">
                 <CardHeader>
                     <CardTitle>Resume Assistant</CardTitle>
-                    <CardDescription>Chat with the AI to refine your resume.</CardDescription>
+                    <CardDescription>
+                        Chat with the AI to refine your resume. 
+                        {result && (
+                            <span className="text-green-600 font-medium"> The assistant has access to your ATS analysis and can provide targeted suggestions!</span>
+                        )}
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-hidden">
                     <ScrollArea className="h-full pr-4" ref={chatContainerRef}>
