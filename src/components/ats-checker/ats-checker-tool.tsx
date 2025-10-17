@@ -157,7 +157,7 @@ Ask me anything about improving your resume! For example:
             resumeText: selectedResume.editable_text,
             chatHistory: [...chatHistory, newUserMessage],
             userMessage: userMessage,
-            atsAnalysis: result, // Include the ATS analysis results
+            atsAnalysis: result || undefined, // Include the ATS analysis results
         };
         const { response } = await chatWithResumeAssistant(chatInput);
         setChatHistory(prev => [...prev, { role: 'model', content: response }]);
@@ -589,7 +589,7 @@ Ask me anything about improving your resume! For example:
                     <div className="flex w-full items-center space-x-2">
                         <Input
                             type="text"
-                            placeholder="Ask for changes or advice..."
+                            placeholder={result ? "Ask about improving your ATS score..." : "Ask for changes or advice..."}
                             value={userMessage}
                             onChange={(e) => setUserMessage(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
