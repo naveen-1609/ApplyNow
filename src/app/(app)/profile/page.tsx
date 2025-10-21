@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/error-boundary';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SimpleSubscriptionStatus } from '@/components/subscription/simple-subscription-status';
 import { 
   User
 } from 'lucide-react';
@@ -166,6 +167,11 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Subscription Status */}
+      <div className="mt-6">
+        <SimpleSubscriptionStatus />
       </div>
 
       {/* Keyboard Shortcuts Info */}

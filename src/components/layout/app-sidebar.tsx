@@ -23,6 +23,7 @@ import {
   LogOut,
   ScanSearch,
   User,
+  Shield,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-optimized-auth';
 
@@ -41,6 +42,8 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
 
   if (!user) return null;
+
+  const isAdmin = user.email === 'naveenvenkat58@gmail.com';
 
   return (
     <Sidebar>
@@ -66,6 +69,23 @@ export function AppSidebar() {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+          
+          {/* Admin Dashboard Link */}
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname.startsWith('/admin')}
+                tooltip="Admin Dashboard"
+                className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+              >
+                <Link href="/admin">
+                  <Shield />
+                  <span>Admin Dashboard</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
         </SidebarMenu>
       </SidebarContent>
       <SidebarSeparator />

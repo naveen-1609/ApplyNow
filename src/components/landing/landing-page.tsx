@@ -113,6 +113,11 @@ export function LandingPage() {
                   Sign In
                 </Link>
               </Button>
+              <Button asChild variant="secondary" size="lg" className="text-lg px-10 py-7">
+                <Link href="/pricing">
+                  View Pricing
+                </Link>
+              </Button>
             </div>
             
             <div className="flex flex-wrap justify-center gap-8 text-sm text-muted-foreground">

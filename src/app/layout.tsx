@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { OptimizedAuthProvider } from '@/hooks/use-optimized-auth';
+import { SubscriptionProvider } from '@/hooks/use-subscription';
 
 export const metadata: Metadata = {
   title: 'ApplyNow - Land Your Dream Job',
@@ -35,8 +36,10 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <OptimizedAuthProvider>
-          {children}
-          <Toaster />
+          <SubscriptionProvider>
+            {children}
+            <Toaster />
+          </SubscriptionProvider>
         </OptimizedAuthProvider>
         <script
           dangerouslySetInnerHTML={{
