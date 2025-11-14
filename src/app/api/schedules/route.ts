@@ -1,13 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb } from '@/lib/firebase-admin';
+import { adminDb, getAuth } from '@/lib/firebase-admin';
+
+async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split('Bearer ')[1];
+      const decodedToken = await getAuth().verifyIdToken(token);
+      return decodedToken.uid;
+    }
+    // Fallback: Allow userId from query/body for backward compatibility
+    // In production, this should be removed and require auth token
+    return null;
+  } catch (error) {
+    console.error('Error verifying auth token:', error);
+    return null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
+    // Get authenticated user ID
+    const authenticatedUserId = await getUserIdFromRequest(request);
+    
     const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
+    const requestedUserId = searchParams.get('userId');
 
+    // Use authenticated user ID if available, otherwise use requested userId (for backward compatibility)
+    const userId = authenticatedUserId || requestedUserId;
+    
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
+    // If we have an authenticated user, verify they match the requested userId
+    if (authenticatedUserId && requestedUserId && authenticatedUserId !== requestedUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const schedulesCol = adminDb.collection('schedules');
@@ -39,11 +67,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Get authenticated user ID
+    const authenticatedUserId = await getUserIdFromRequest(request);
+    
     const body = await request.json();
-    const { userId, reminder_time, summary_time, email_enabled, reminder_email_template, summary_email_template } = body;
+    const { userId: requestedUserId, reminder_time, summary_time, email_enabled, reminder_email_template, summary_email_template } = body;
 
+    // Use authenticated user ID if available, otherwise use requested userId (for backward compatibility)
+    const userId = authenticatedUserId || requestedUserId;
+    
     if (!userId) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
+    }
+    
+    // If we have an authenticated user, verify they match the requested userId
+    if (authenticatedUserId && requestedUserId && authenticatedUserId !== requestedUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const schedulesCol = adminDb.collection('schedules');
@@ -71,11 +110,25 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Get authenticated user ID
+    const authenticatedUserId = await getUserIdFromRequest(request);
+    
     const body = await request.json();
     const { scheduleId, ...updateData } = body;
 
     if (!scheduleId) {
       return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+    }
+
+    // Verify the schedule exists and belongs to the authenticated user (if authenticated)
+    const scheduleDoc = await adminDb.collection('schedules').doc(scheduleId).get();
+    if (!scheduleDoc.exists) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    }
+    
+    const scheduleUserId = scheduleDoc.data()?.user_id;
+    if (authenticatedUserId && scheduleUserId !== authenticatedUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const scheduleDocRef = adminDb.collection('schedules').doc(scheduleId);
@@ -90,11 +143,25 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    // Get authenticated user ID
+    const authenticatedUserId = await getUserIdFromRequest(request);
+    
     const { searchParams } = new URL(request.url);
     const scheduleId = searchParams.get('scheduleId');
 
     if (!scheduleId) {
       return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });
+    }
+
+    // Verify the schedule exists and belongs to the authenticated user (if authenticated)
+    const scheduleDoc = await adminDb.collection('schedules').doc(scheduleId).get();
+    if (!scheduleDoc.exists) {
+      return NextResponse.json({ error: 'Schedule not found' }, { status: 404 });
+    }
+    
+    const scheduleUserId = scheduleDoc.data()?.user_id;
+    if (authenticatedUserId && scheduleUserId !== authenticatedUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const scheduleDocRef = adminDb.collection('schedules').doc(scheduleId);

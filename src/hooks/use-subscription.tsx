@@ -116,7 +116,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    refreshProfile();
+    if (user) {
+      refreshProfile();
+      
+      // Check subscription expiration periodically (every 5 minutes)
+      const expirationCheckInterval = setInterval(async () => {
+        if (user) {
+          try {
+            await subscriptionService.checkAndHandleExpiration(user.uid);
+            // Reload profile if expiration was handled
+            await refreshProfile();
+          } catch (error) {
+            console.error('Error checking subscription expiration:', error);
+          }
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+      
+      return () => clearInterval(expirationCheckInterval);
+    }
   }, [user]);
 
   // Check if user is admin email (as fallback for immediate recognition)

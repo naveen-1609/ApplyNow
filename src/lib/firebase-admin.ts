@@ -1,6 +1,7 @@
 import { initializeApp, getApps, cert, type ServiceAccount, type App } from 'firebase-admin/app';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
+import { getAuth } from 'firebase-admin/auth';
 
 // Service account configuration
 const serviceAccount: ServiceAccount = {
@@ -29,4 +30,4 @@ if (getApps().length === 0) {
 // Export admin services
 export const adminDb = getFirestore(adminApp);
 export const adminStorage = getStorage(adminApp);
-export { adminApp, Timestamp };
+export { adminApp, Timestamp, getAuth };

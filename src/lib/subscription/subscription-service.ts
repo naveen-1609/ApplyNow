@@ -102,14 +102,34 @@ export class SubscriptionService {
         }
       }
       
+      // Check if subscription has expired
+      const subscriptionEndDate = data.subscriptionEndDate?.toDate();
+      const isExpired = subscriptionEndDate && subscriptionEndDate < new Date();
+      
+      // Auto-downgrade if expired (unless admin or already FREE)
+      let finalPlan = isAdminEmail ? SubscriptionPlan.ADMIN : (data.subscriptionPlan as SubscriptionPlan);
+      let finalStatus = data.subscriptionStatus;
+      
+      if (isExpired && finalPlan !== SubscriptionPlan.FREE && finalPlan !== SubscriptionPlan.ADMIN) {
+        // Subscription expired - downgrade to FREE
+        try {
+          await this.updateSubscription(userId, SubscriptionPlan.FREE, 'expired');
+          finalPlan = SubscriptionPlan.FREE;
+          finalStatus = 'expired';
+          console.log(`⚠️ Subscription expired for user ${userId}, auto-downgraded to FREE`);
+        } catch (error) {
+          console.error('Error auto-downgrading expired subscription:', error);
+        }
+      }
+      
       return {
         id: userDoc.id,
         email: data.email,
         name: data.name,
-        subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : (data.subscriptionPlan as SubscriptionPlan),
-        subscriptionStatus: data.subscriptionStatus,
+        subscriptionPlan: finalPlan,
+        subscriptionStatus: finalStatus,
         subscriptionStartDate: data.subscriptionStartDate?.toDate(),
-        subscriptionEndDate: data.subscriptionEndDate?.toDate(),
+        subscriptionEndDate: subscriptionEndDate,
         isAdmin: isAdminEmail || (data.isAdmin || false),
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
@@ -197,9 +217,44 @@ export class SubscriptionService {
       }
 
       await updateDoc(doc(db, 'users', userId), updateData);
+      
+      console.log(`✅ Updated subscription for user ${userId}: ${plan} (${status})`);
     } catch (error) {
       console.error('Error updating subscription:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Check if subscription is expired and downgrade if needed
+   * Call this periodically or before feature access checks
+   */
+  async checkAndHandleExpiration(userId: string): Promise<boolean> {
+    try {
+      const userProfile = await this.getUserProfile(userId);
+      
+      if (!userProfile) {
+        return false;
+      }
+
+      // Check if subscription has expired
+      if (userProfile.subscriptionEndDate && userProfile.subscriptionEndDate < new Date()) {
+        // Only downgrade if not already FREE
+        if (userProfile.subscriptionPlan !== SubscriptionPlan.FREE) {
+          await this.updateSubscription(
+            userId,
+            SubscriptionPlan.FREE,
+            'expired'
+          );
+          console.log(`⚠️ Subscription expired for user ${userId}, downgraded to FREE`);
+          return true; // Subscription was expired and downgraded
+        }
+      }
+
+      return false; // Subscription is still active
+    } catch (error) {
+      console.error('Error checking subscription expiration:', error);
+      return false;
     }
   }
 

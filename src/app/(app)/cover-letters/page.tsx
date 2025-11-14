@@ -43,13 +43,8 @@ export default function CoverLettersPage() {
     <div className="space-y-8">
       <PageHeader
         title="Cover Letter Directory"
-        description="Manage all your cover letters in one place."
-      >
-        <Button onClick={() => {/* Will be handled by card component */}} disabled>
-          <PlusCircle className="mr-2" />
-          Add Cover Letter
-        </Button>
-      </PageHeader>
+        description="Manage all your cover letters in one place. Generate cover letters from the ATS Checker and save them here."
+      />
 
       {loading ? (
         <div className="flex justify-center py-12">

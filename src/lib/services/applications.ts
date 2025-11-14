@@ -60,6 +60,10 @@ export const getApplications = async (userId: string): Promise<JobApplication[]>
 
 // Add a new job application
 export const addApplication = async (userId: string, data: CreateJobApplicationData): Promise<string> => {
+    // Note: Application limit checking should be done server-side in API routes
+    // This client-side function assumes the check has already been performed
+    // For server-side enforcement, use verifyApplicationLimit from subscription-verification.ts
+    
     const applicationsCol = getApplicationsCollection();
     const now = Timestamp.now();
     
