@@ -54,7 +54,7 @@ const nextConfig: NextConfig = {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   // Enable static optimization
-  output: 'standalone',
+  // output: 'standalone', // Commented out for Vercel deployment
   // Optimize bundle
   webpack: (config, { dev, isServer }) => {
     if (!dev && !isServer) {
