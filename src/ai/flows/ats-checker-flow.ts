@@ -15,8 +15,8 @@ import { z } from 'genkit';
 
 // Schema for Initial Analysis
 const AtsAnalysisInputSchema = z.object({
-  jobDescription: z.string().describe('The description of the job.'),
-  resumeText: z.string().describe('The text content of the resume.'),
+  jobDescription: z.string().min(1, 'Job description is required').describe('The description of the job.'),
+  resumeText: z.string().min(1, 'Resume text is required').describe('The text content of the resume. Must not be empty.'),
 });
 export type AtsAnalysisInput = z.infer<typeof AtsAnalysisInputSchema>;
 
@@ -119,6 +119,28 @@ Job Description:
 
 Resume Text:
 {{{resumeText}}}
+
+CRITICAL VALIDATION:
+Before proceeding with analysis, verify that:
+1. The Resume Text section above contains actual resume content (not empty, not just whitespace)
+2. You can see specific details like skills, work experience, education, etc.
+
+If the Resume Text section is:
+- Empty or blank
+- Contains only whitespace
+- Shows "undefined" or "null" 
+- Has no actual resume content
+
+Then you MUST:
+1. Set ats_match_score to 0
+2. Set all subscores to 0
+3. In fit_summary, clearly state: "Resume text content was not provided or could not be extracted from the document. The resume text section was empty or unavailable, preventing a detailed ATS analysis. Please ensure the resume has been properly uploaded and text extracted, or manually add the resume content before analysis."
+4. In current_problems, add: "Resume text content was not available for analysis - the document text could not be extracted"
+5. In role_expectations.summary, state: "Unable to extract role expectations comparison as resume content was not available"
+6. Set all resume_fit arrays (found, partial, missing) to empty arrays
+7. Do NOT attempt to analyze non-existent content - do not make up or infer resume details
+
+ONLY proceed with full analysis if the Resume Text section contains actual, meaningful resume content (skills, experience, education, etc.).
 
 ANALYSIS SECTIONS
 1. **Role Understanding**
@@ -232,8 +254,52 @@ const analyzeResumeFlow = ai.defineFlow(
     outputSchema: AtsAnalysisOutputSchema,
   },
   async (input) => {
+    // Validate input before processing
+    if (!input.resumeText || input.resumeText.trim().length === 0) {
+      throw new Error('Resume text is required and cannot be empty. Please ensure the resume has been properly uploaded and text extracted.');
+    }
+    
+    if (!input.jobDescription || input.jobDescription.trim().length === 0) {
+      throw new Error('Job description is required and cannot be empty.');
+    }
+    
+    console.log('🔄 Starting ATS analysis:', {
+      jobDescLength: input.jobDescription.length,
+      resumeTextLength: input.resumeText.length,
+      resumeTextPreview: input.resumeText.substring(0, 200),
+      resumeTextEnd: input.resumeText.substring(Math.max(0, input.resumeText.length - 100)),
+      jobDescPreview: input.jobDescription.substring(0, 200)
+    });
+    
+    // Verify resume text is actually being sent
+    if (!input.resumeText || input.resumeText.trim().length < 10) {
+      console.error('❌ CRITICAL: Resume text is empty or too short:', {
+        length: input.resumeText?.length || 0,
+        trimmedLength: input.resumeText?.trim().length || 0,
+        value: input.resumeText?.substring(0, 50) || 'EMPTY'
+      });
+      throw new Error(`Resume text is required and must be at least 10 characters. Current length: ${input.resumeText?.length || 0}`);
+    }
+    
+    console.log('📤 Sending to AI prompt with:', {
+      hasJobDesc: !!input.jobDescription,
+      hasResumeText: !!input.resumeText,
+      resumeTextChars: input.resumeText.length,
+      jobDescChars: input.jobDescription.length
+    });
+    
     const { output } = await analysisPrompt(input);
-    return output!;
+    
+    if (!output) {
+      throw new Error('Analysis failed: No output received from AI model.');
+    }
+    
+    console.log('✅ ATS analysis completed:', {
+      score: output.ats_match_score,
+      subscores: output.subscores
+    });
+    
+    return output;
   }
 );
 
@@ -339,11 +405,18 @@ const coverLetterPrompt = ai.definePrompt({
   prompt: `You are an expert career coach and professional writer specializing in creating compelling cover letters that get candidates noticed by recruiters and hiring managers.
 
 Your task is to generate a personalized cover letter that:
-1. Aligns the candidate's resume with the specific job requirements
-2. Highlights relevant experience and achievements
-3. Demonstrates knowledge of the role and company
+1. Aligns the candidate's resume with the specific job requirements from the job description
+2. Highlights relevant experience and achievements that match the job description
+3. Demonstrates knowledge of the role and company based on the job description
 4. Uses the specified tone and length
 5. Follows professional cover letter best practices
+
+**CRITICAL: The job description below is the PRIMARY source for understanding what the employer is looking for. You MUST:**
+- Reference specific requirements, skills, and qualifications from the job description
+- Match the candidate's resume experience to the job description requirements
+- Use keywords and phrases from the job description naturally throughout the cover letter
+- Address each major requirement or qualification mentioned in the job description
+- Show how the candidate's background directly relates to what the job description asks for
 
 **Job Description:**
 {{{jobDescription}}}
@@ -361,17 +434,18 @@ Your task is to generate a personalized cover letter that:
 **Structure:**
 - Professional header with contact information
 - Personalized greeting (avoid "To Whom It May Concern")
-- Opening paragraph: Express interest and mention the specific position
-- Body paragraphs (2-3): Highlight relevant experience and achievements
+- Opening paragraph: Express interest and mention the specific position from the job description
+- Body paragraphs (2-3): Highlight relevant experience and achievements that directly match job description requirements
 - Closing paragraph: Reiterate interest and call to action
 - Professional sign-off
 
 **Content Requirements:**
-- Use specific examples from the resume that match job requirements
-- Include quantifiable achievements where possible
-- Show knowledge of the company/role (if company name provided)
-- Address key skills and qualifications mentioned in the job description
-- Demonstrate enthusiasm and cultural fit
+- **PRIMARY FOCUS**: Use specific examples from the resume that match the job description requirements
+- **MANDATORY**: Address key skills, qualifications, and responsibilities mentioned in the job description
+- Include quantifiable achievements where possible that relate to job description requirements
+- Show knowledge of the company/role (if company name provided) based on the job description
+- Use keywords from the job description naturally throughout the cover letter
+- Demonstrate enthusiasm and cultural fit based on what the job description indicates about the company culture
 
 **Tone Guidelines:**
 - Professional: Formal, respectful, business-appropriate
@@ -385,10 +459,16 @@ Your task is to generate a personalized cover letter that:
 - Long: 400-500 words, 5-6 paragraphs
 
 **Key Points to Highlight:**
-Extract 3-5 most relevant points from the resume that align with the job requirements.
+Extract 3-5 most relevant points from the resume that align with the job description requirements. Each point should directly reference something from the job description.
 
 **Customization Tips:**
-Provide 3-4 specific suggestions for further personalizing the cover letter.
+Provide 3-4 specific suggestions for further personalizing the cover letter based on the job description.
+
+**REMEMBER:**
+- The job description is your PRIMARY guide - every paragraph should connect back to it
+- Use specific terminology and phrases from the job description
+- Show how the candidate's experience directly addresses what the job description asks for
+- Make it clear you've read and understood the job description by referencing specific requirements
 
 Return a JSON object with the cover letter, key points, and customization tips.`,
 });

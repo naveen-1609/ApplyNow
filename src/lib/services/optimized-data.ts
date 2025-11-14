@@ -120,6 +120,12 @@ export class OptimizedDataService {
         const snapshot = await getDocs(q);
         const resumes = snapshot.docs.map(this.fromFirestoreResume);
         console.log(`✅ OptimizedDataService: Fetched ${resumes.length} resumes`);
+        
+        // Debug: Log editable_text status for each resume
+        resumes.forEach(resume => {
+          console.log(`📋 Resume "${resume.resume_name}": editable_text length = ${resume.editable_text?.length || 0}, has text = ${!!resume.editable_text && resume.editable_text.length > 0}`);
+        });
+        
         return resumes;
       }
     );
@@ -149,13 +155,16 @@ export class OptimizedDataService {
   // Convert Firestore document to Resume
   private fromFirestoreResume = (doc: QueryDocumentSnapshot<DocumentData>): Resume => {
     const data = doc.data();
+    const editableText = data.editable_text || '';
+    console.log(`📄 Resume ${doc.id} (${data.resume_name}): editable_text length = ${editableText.length}`);
     return {
       resume_id: doc.id,
       user_id: data.user_id,
       resume_name: data.resume_name,
       file_url: data.file_url,
       storage_path: data.storage_path,
-      editable_text: data.editable_text,
+      editable_text: editableText, // Ensure it's always a string, default to empty
+      extraction_warning: data.extraction_warning || null,
       created_at: data.created_at?.toDate() || new Date(),
     };
   };

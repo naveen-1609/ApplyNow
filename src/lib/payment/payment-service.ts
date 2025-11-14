@@ -19,36 +19,64 @@ export class PaymentService {
     return PaymentService.instance;
   }
 
-  async createPaymentIntent(plan: SubscriptionPlan, userId: string): Promise<PaymentIntent> {
-    // TODO: Integrate with Stripe or other payment processor
-    // For now, return a mock payment intent
-    
+  async createPaymentIntent(plan: SubscriptionPlan, userId: string, userEmail: string): Promise<PaymentIntent> {
     const planPrices = {
       [SubscriptionPlan.FREE]: 0,
       [SubscriptionPlan.PLUS]: 5,
       [SubscriptionPlan.PRO]: 50,
     };
 
-    const mockPaymentIntent: PaymentIntent = {
-      id: `pi_mock_${Date.now()}`,
-      amount: planPrices[plan] * 100, // Convert to cents
-      currency: 'usd',
-      plan,
-      status: 'pending',
-    };
+    if (plan === SubscriptionPlan.FREE) {
+      throw new Error('Cannot create payment intent for FREE plan');
+    }
 
-    // Create transaction record
-    await subscriptionService.createTransaction({
-      userId,
-      plan,
-      amount: planPrices[plan],
-      currency: 'USD',
-      paymentMethod: 'mock',
-      transactionId: mockPaymentIntent.id,
-      status: 'pending',
-    });
+    // Check if we're in browser environment
+    if (typeof window === 'undefined') {
+      throw new Error('Payment intent can only be created in browser environment');
+    }
 
-    return mockPaymentIntent;
+    try {
+      // Create Stripe checkout session
+      const response = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          userEmail,
+          plan,
+          successUrl: `${window.location.origin}/subscriptions?success=true`,
+          cancelUrl: `${window.location.origin}/pricing?canceled=true`,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create checkout session');
+      }
+
+      const { checkoutUrl } = await response.json();
+
+      if (!checkoutUrl) {
+        throw new Error('No checkout URL received');
+      }
+
+      // Redirect to Stripe checkout
+      window.location.href = checkoutUrl;
+
+      // Return a pending payment intent
+      const paymentIntent: PaymentIntent = {
+        id: `checkout_${Date.now()}`,
+        amount: planPrices[plan] * 100,
+        currency: 'usd',
+        plan,
+        status: 'pending',
+      };
+
+      return paymentIntent;
+    } catch (error) {
+      console.error('Error creating payment intent:', error);
+      throw error;
+    }
   }
 
   async confirmPayment(paymentIntentId: string, userId: string): Promise<boolean> {

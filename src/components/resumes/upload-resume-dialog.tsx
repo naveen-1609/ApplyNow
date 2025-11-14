@@ -32,6 +32,8 @@ export function UploadResumeDialog({
   const [resumeName, setResumeName] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [extractionStatus, setExtractionStatus] = useState<'idle' | 'extracting' | 'warning' | 'error'>('idle');
+  const [extractionMessage, setExtractionMessage] = useState('');
 
   const handleUpload = async () => {
     if (!resumeName || !file || !user) {
@@ -44,23 +46,34 @@ export function UploadResumeDialog({
     }
 
     setIsUploading(true);
+    setExtractionStatus('extracting');
+    setExtractionMessage('Extracting text from file...');
 
     try {
         await addResume(user.uid, resumeName, file);
+        
+        // Check if extraction was successful by getting the uploaded resume
+        // Note: We'll show a warning in the resume card if extraction failed
         toast({
           title: 'Upload successful',
-          description: `${resumeName} has been added to your directory.`,
+          description: `"${resumeName}" has been uploaded. ${file.type?.includes('word') || file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc') ? 'For better text extraction, consider converting to PDF format.' : 'Please review the extracted text.'}`,
         });
+        
         onUploadSuccess();
         onOpenChange(false);
         setResumeName('');
         setFile(null);
-    } catch (error) {
+        setExtractionStatus('idle');
+        setExtractionMessage('');
+    } catch (error: any) {
         console.error("Upload failed", error);
+        setExtractionStatus('error');
+        setExtractionMessage(error?.message || 'Upload failed');
+        
         toast({
             variant: 'destructive',
             title: 'Upload Failed',
-            description: 'Could not upload your resume. Please try again.',
+            description: error?.message || 'Could not upload your resume. Please try again.',
         });
     } finally {
         setIsUploading(false);
@@ -94,14 +107,43 @@ export function UploadResumeDialog({
             <Label htmlFor="file" className="text-right">
               File
             </Label>
-            <Input 
-              id="file" 
-              type="file" 
-              onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-              className="col-span-3"
-              accept=".pdf,.doc,.docx"
-              disabled={isUploading}
-            />
+            <div className="col-span-3 space-y-2">
+              <Input 
+                id="file" 
+                type="file" 
+                onChange={(e) => {
+                  const selectedFile = e.target.files ? e.target.files[0] : null;
+                  setFile(selectedFile);
+                  setExtractionStatus('idle');
+                  setExtractionMessage('');
+                  if (selectedFile) {
+                    const isWordFile = selectedFile.name.toLowerCase().endsWith('.docx') || 
+                                     selectedFile.name.toLowerCase().endsWith('.doc');
+                    if (isWordFile) {
+                      setExtractionStatus('warning');
+                      setExtractionMessage('Word documents may have extraction issues. PDF format is recommended for best results.');
+                    }
+                  }
+                }}
+                accept=".pdf,.doc,.docx"
+                disabled={isUploading}
+              />
+              {extractionStatus === 'warning' && (
+                <p className="text-sm text-yellow-600 dark:text-yellow-400">
+                  ⚠️ {extractionMessage}
+                </p>
+              )}
+              {extractionStatus === 'extracting' && (
+                <p className="text-sm text-blue-600 dark:text-blue-400">
+                  🔄 {extractionMessage}
+                </p>
+              )}
+              {extractionStatus === 'error' && (
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  ❌ {extractionMessage}
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter>

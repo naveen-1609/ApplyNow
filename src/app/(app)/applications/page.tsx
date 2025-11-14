@@ -12,6 +12,7 @@ import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData
 import { useAuth } from '@/hooks/use-optimized-auth';
 import { useOptimizedApplications } from '@/hooks/use-optimized-applications';
 import { useOptimizedResumes } from '@/hooks/use-optimized-resumes';
+import { useCoverLetters } from '@/hooks/use-cover-letters';
 import { addApplication, updateApplication, deleteApplication } from '@/lib/services/applications';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CompactFastLoader } from '@/components/ui/fast-loader';
@@ -29,6 +30,7 @@ export default function ApplicationsPage() {
   } = useOptimizedApplications();
   
   const { resumes } = useOptimizedResumes();
+  const { coverLetters } = useCoverLetters();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
 
@@ -67,6 +69,7 @@ export default function ApplicationsPage() {
           job_link: appData.job_link || '',
           job_description: appData.job_description || '',
           resume_id: appData.resume_id || null,
+          cover_letter_id: (appData as any).cover_letter_id || null,
           status: appData.status || 'Applied',
           applied_date: appData.applied_date || new Date(),
           last_updated: new Date()
@@ -133,7 +136,7 @@ export default function ApplicationsPage() {
           <ApplicationGridView applications={applications} onEdit={handleEditApplication} />
         </TabsContent>
         <TabsContent value="list" className="mt-6">
-          <OptimizedApplicationListView applications={applications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} resumes={resumes} />
+          <OptimizedApplicationListView applications={applications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} resumes={resumes} coverLetters={coverLetters} />
         </TabsContent>
       </Tabs>
       )}
@@ -144,6 +147,7 @@ export default function ApplicationsPage() {
         application={editingApplication}
         onSave={handleSaveApplication}
         resumes={resumes}
+        coverLetters={coverLetters}
       />
     </div>
   );

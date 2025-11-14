@@ -18,6 +18,17 @@ export type Resume = {
   file_url: string;
   storage_path: string;
   editable_text: string;
+  extraction_warning?: string | null; // Warning message if text extraction had issues
+  created_at: Date;
+};
+
+export type CoverLetter = {
+  cover_letter_id: string;
+  user_id: string;
+  cover_letter_name: string;
+  cover_letter_text: string;
+  company_name?: string | null;
+  job_title?: string | null;
   created_at: Date;
 };
 
@@ -29,6 +40,7 @@ export type JobApplication = {
   job_link: string;
   job_description: string;
   resume_id: string | null; // Make resume_id optional
+  cover_letter_id: string | null; // Cover letter used for this application
   status: JobApplicationStatus;
   applied_date: Date;
   last_updated: Date;

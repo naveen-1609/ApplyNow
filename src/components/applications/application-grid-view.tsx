@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo, useCallback } from 'react';
 import {
   Card,
   CardContent,
@@ -22,7 +23,7 @@ const statusStyles: Record<JobApplicationStatus, string> = {
     Ghosted: 'border-gray-500/50 bg-gray-500/10 text-gray-400',
 };
 
-function ApplicationCard({ application, onCardClick }: { application: JobApplication, onCardClick: (app: JobApplication) => void; }) {
+const ApplicationCard = memo(function ApplicationCard({ application, onCardClick }: { application: JobApplication, onCardClick: (app: JobApplication) => void; }) {
     return (
         <Card onClick={() => onCardClick(application)} className="cursor-pointer hover:border-primary/50 transition-colors">
             <CardHeader>
@@ -46,20 +47,26 @@ function ApplicationCard({ application, onCardClick }: { application: JobApplica
                 </Button>
             </CardFooter>
         </Card>
-    )
-}
+    );
+});
 
-export function ApplicationGridView({ applications, onEdit }: { applications: JobApplication[], onEdit: (app: JobApplication) => void; }) {
-    const groupedApps = applications.reduce((acc, app) => {
-        const date = format(app.applied_date, 'yyyy-MM-dd');
-        if (!acc[date]) {
-            acc[date] = [];
-        }
-        acc[date].push(app);
-        return acc;
-    }, {} as Record<string, JobApplication[]>);
+export const ApplicationGridView = memo(function ApplicationGridView({ applications, onEdit }: { applications: JobApplication[], onEdit: (app: JobApplication) => void; }) {
+    const groupedApps = useMemo(() => {
+        return applications.reduce((acc, app) => {
+            const date = format(app.applied_date, 'yyyy-MM-dd');
+            if (!acc[date]) {
+                acc[date] = [];
+            }
+            acc[date].push(app);
+            return acc;
+        }, {} as Record<string, JobApplication[]>);
+    }, [applications]);
 
-    const sortedGroups = Object.keys(groupedApps).sort().reverse();
+    const sortedGroups = useMemo(() => Object.keys(groupedApps).sort().reverse(), [groupedApps]);
+    
+    const handleCardClick = useCallback((app: JobApplication) => {
+        onEdit(app);
+    }, [onEdit]);
 
   return (
     <div className="space-y-8">
@@ -70,11 +77,11 @@ export function ApplicationGridView({ applications, onEdit }: { applications: Jo
                 <h2 className="mb-4 font-semibold text-muted-foreground">{format(new Date(date), 'EEEE, MMMM d')}</h2>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {groupedApps[date].map(app => (
-                        <ApplicationCard key={app.job_id} application={app} onCardClick={onEdit} />
+                        <ApplicationCard key={app.job_id} application={app} onCardClick={handleCardClick} />
                     ))}
                 </div>
             </div>
         ))}
     </div>
   );
-}
+});

@@ -47,13 +47,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         } catch (createError) {
           console.error('Error creating user profile:', createError);
           // If profile creation fails, create a default profile object
+          // Check if this is admin email
+          const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
           profile = {
             id: user.uid,
             email: user.email || '',
             name: user.displayName || 'User',
-            subscriptionPlan: SubscriptionPlan.FREE,
+            subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : SubscriptionPlan.FREE,
             subscriptionStatus: 'active',
-            isAdmin: false,
+            isAdmin: isAdminEmail,
             createdAt: new Date(),
             updatedAt: new Date(),
           };
@@ -64,13 +66,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error refreshing profile:', error);
       // Set a default profile to prevent crashes
+      // Check if this is admin email
+      const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
       setUserProfile({
         id: user.uid,
         email: user.email || '',
         name: user.displayName || 'User',
-        subscriptionPlan: SubscriptionPlan.FREE,
+        subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : SubscriptionPlan.FREE,
         subscriptionStatus: 'active',
-        isAdmin: false,
+        isAdmin: isAdminEmail,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -112,12 +116,23 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    console.log('SubscriptionProvider - User changed:', user?.email);
     refreshProfile();
   }, [user]);
 
-  // Computed values based on current subscription
-  const limits = userProfile ? getUserLimits(userProfile.subscriptionPlan) : getUserLimits(SubscriptionPlan.FREE);
+  // Check if user is admin email (as fallback for immediate recognition)
+  const isAdminEmail = user?.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
+  
+  // Determine the effective subscription plan
+  // Priority: 1) Admin email -> ADMIN, 2) User profile plan, 3) FREE
+  const effectivePlan = isAdminEmail 
+    ? SubscriptionPlan.ADMIN 
+    : (userProfile?.subscriptionPlan || SubscriptionPlan.FREE);
+  
+  // Computed values based on effective subscription
+  const limits = getUserLimits(effectivePlan);
+  
+  // Admin status: check profile first, then email as fallback
+  const effectiveIsAdmin = userProfile?.isAdmin || isAdminEmail;
   
   const contextValue: SubscriptionContextType = {
     userProfile,
@@ -129,7 +144,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     hasUnlimitedAccess: limits?.hasUnlimitedAccess || false,
     hasFutureFeatures: limits?.hasFutureFeatures || false,
     maxApplications: limits?.maxApplications || 100,
-    isAdmin: userProfile?.isAdmin || false,
+    isAdmin: effectiveIsAdmin,
   };
 
   return (

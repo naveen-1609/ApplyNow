@@ -18,9 +18,11 @@ export default function TargetsPage() {
 
   const target = todayTarget || { daily_target: 3 };
   
-  const handleTargetSaved = () => {
-    // Refetch data when target is updated
-    refetch();
+  const handleTargetSaved = async () => {
+    // Small delay to ensure server update is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+    // Refetch data when target is updated - this clears cache and fetches fresh data
+    await refetch();
   };
 
   const todayString = format(new Date(), 'yyyy-MM-dd');

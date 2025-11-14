@@ -62,15 +62,55 @@ export class SubscriptionService {
       }
       
       const data = userDoc.data();
+      const email = data.email?.toLowerCase() || '';
+      
+      // Check if this is the admin email and upgrade if needed
+      const isAdminEmail = email === 'naveenvenkat58@gmail.com';
+      const isCurrentlyAdmin = data.isAdmin || data.subscriptionPlan === SubscriptionPlan.ADMIN;
+      
+      // Auto-upgrade admin email to ADMIN plan if not already
+      // Always ensure admin email has ADMIN plan and isAdmin flag
+      if (isAdminEmail) {
+        if (!isCurrentlyAdmin || data.subscriptionPlan !== SubscriptionPlan.ADMIN) {
+          try {
+            console.log(`🔧 Upgrading ${email} to ADMIN plan...`);
+            await updateDoc(doc(db, 'users', userId), {
+              subscriptionPlan: SubscriptionPlan.ADMIN,
+              isAdmin: true,
+              subscriptionStatus: 'active',
+              updatedAt: Timestamp.fromDate(new Date()),
+            });
+            console.log(`✅ Successfully upgraded ${email} to ADMIN plan`);
+            
+            // Also create/update admin user record
+            try {
+              await setDoc(doc(db, 'admin_users', userId), {
+                email: data.email,
+                name: data.name,
+                role: 'admin',
+                isActive: true,
+                createdBy: 'system',
+                createdAt: Timestamp.fromDate(new Date()),
+                updatedAt: Timestamp.fromDate(new Date()),
+              }, { merge: true });
+            } catch (error) {
+              console.error('Error creating/updating admin user record:', error);
+            }
+          } catch (error) {
+            console.error('Error upgrading user to admin:', error);
+          }
+        }
+      }
+      
       return {
         id: userDoc.id,
         email: data.email,
         name: data.name,
-        subscriptionPlan: data.subscriptionPlan as SubscriptionPlan,
+        subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : (data.subscriptionPlan as SubscriptionPlan),
         subscriptionStatus: data.subscriptionStatus,
         subscriptionStartDate: data.subscriptionStartDate?.toDate(),
         subscriptionEndDate: data.subscriptionEndDate?.toDate(),
-        isAdmin: data.isAdmin || false,
+        isAdmin: isAdminEmail || (data.isAdmin || false),
         createdAt: data.createdAt?.toDate() || new Date(),
         updatedAt: data.updatedAt?.toDate() || new Date(),
       };
@@ -88,12 +128,15 @@ export class SubscriptionService {
         throw new Error('Firebase not initialized');
       }
 
+      // Check if this is the admin email
+      const isAdminEmail = email.toLowerCase() === 'naveenvenkat58@gmail.com';
+      
       const userProfile: Partial<UserProfile> = {
         email,
         name,
-        subscriptionPlan: SubscriptionPlan.FREE,
+        subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : SubscriptionPlan.FREE,
         subscriptionStatus: 'active',
-        isAdmin: false,
+        isAdmin: isAdminEmail,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -103,6 +146,24 @@ export class SubscriptionService {
         createdAt: Timestamp.fromDate(userProfile.createdAt!),
         updatedAt: Timestamp.fromDate(userProfile.updatedAt!),
       });
+
+      // Also create admin user record if admin
+      if (isAdminEmail) {
+        try {
+          await setDoc(doc(db, 'admin_users', userId), {
+            email,
+            name,
+            role: 'admin',
+            isActive: true,
+            createdBy: 'system',
+            createdAt: Timestamp.fromDate(new Date()),
+            updatedAt: Timestamp.fromDate(new Date()),
+          });
+        } catch (error) {
+          console.error('Error creating admin user record:', error);
+          // Don't fail the whole operation if admin record creation fails
+        }
+      }
 
       return {
         id: userId,
@@ -195,15 +256,20 @@ export class SubscriptionService {
 
   async getAllUsers(): Promise<UserProfile[]> {
     try {
+      if (!db) {
+        console.warn('Firebase not initialized, returning empty array');
+        return [];
+      }
+
       const querySnapshot = await getDocs(collection(db, 'users'));
       return querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
-          email: data.email,
-          name: data.name,
-          subscriptionPlan: data.subscriptionPlan as SubscriptionPlan,
-          subscriptionStatus: data.subscriptionStatus,
+          email: data.email || '',
+          name: data.name || 'Unknown User',
+          subscriptionPlan: (data.subscriptionPlan as SubscriptionPlan) || SubscriptionPlan.FREE,
+          subscriptionStatus: data.subscriptionStatus || 'active',
           subscriptionStartDate: data.subscriptionStartDate?.toDate(),
           subscriptionEndDate: data.subscriptionEndDate?.toDate(),
           isAdmin: data.isAdmin || false,
@@ -213,7 +279,7 @@ export class SubscriptionService {
       });
     } catch (error) {
       console.error('Error fetching all users:', error);
-      throw error;
+      return []; // Return empty array instead of throwing to prevent crashes
     }
   }
 

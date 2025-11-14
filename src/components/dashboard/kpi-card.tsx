@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Card,
   CardContent,
@@ -13,7 +14,7 @@ type KpiCardProps = {
   Icon: LucideIcon;
 };
 
-export function KpiCard({ title, value, description, Icon }: KpiCardProps) {
+export const KpiCard = memo(function KpiCard({ title, value, description, Icon }: KpiCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -26,4 +27,4 @@ export function KpiCard({ title, value, description, Icon }: KpiCardProps) {
       </CardContent>
     </Card>
   );
-}
+});

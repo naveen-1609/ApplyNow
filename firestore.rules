@@ -1,9 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only access their own profile
+    // Users can only access their own profile (with admin access)
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || 
+         request.auth.token.email == 'naveenvenkat58@gmail.com' || 
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true));
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
     
     // Users can only access their own notes
@@ -31,15 +36,23 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
     }
     
+    // Users can only access their own cover letters
+    match /cover_letters/{coverLetterId} {
+      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+    }
+    
     // Users can only access their own targets
     match /targets/{targetId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow write: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
     }
     
     // Users can only access their own schedules
     match /schedules/{scheduleId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
+      allow write: if request.auth != null && request.auth.uid == resource.data.user_id;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
     }
     
@@ -55,16 +68,6 @@ service cloud.firestore {
         (request.auth.token.email == 'naveenvenkat58@gmail.com' || 
          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
-    }
-    
-    // Allow admin users to read all users for admin dashboard
-    match /users/{userId} {
-      allow read: if request.auth != null && 
-        (request.auth.uid == userId || 
-         request.auth.token.email == 'naveenvenkat58@gmail.com' || 
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true));
-      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 }

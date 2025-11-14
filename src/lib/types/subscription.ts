@@ -108,6 +108,24 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlanDetails[] = [
     ],
     buttonText: 'Go Pro (One-time)',
     buttonVariant: 'default'
+  },
+  {
+    id: SubscriptionPlan.ADMIN,
+    name: 'Admin',
+    price: 0,
+    billingPeriod: 'monthly',
+    description: 'Full administrative access with all features',
+    features: [
+      'Unlimited applications',
+      'All AI features',
+      'All notifications',
+      'Admin dashboard access',
+      'Advanced analytics',
+      'Future feature access',
+      'System management tools'
+    ],
+    buttonText: 'Admin Access',
+    buttonVariant: 'default'
   }
 ];
 

@@ -28,7 +28,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import type { JobApplication, JobApplicationStatus, CreateJobApplicationData, UpdateJobApplicationData, Resume } from '@/lib/types';
+import type { JobApplication, JobApplicationStatus, CreateJobApplicationData, UpdateJobApplicationData, Resume, CoverLetter } from '@/lib/types';
 import { ALL_STATUSES } from '@/lib/types';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +48,8 @@ export function AddApplicationSheet({
   application,
   onSave,
   resumes = [], // Accept resumes as prop to avoid duplicate API calls
-}: AddApplicationSheetProps & { resumes?: Resume[] }) {
+  coverLetters = [], // Accept cover letters as prop
+}: AddApplicationSheetProps & { resumes?: Resume[]; coverLetters?: CoverLetter[] }) {
     const { toast } = useToast();
     const { user } = useAuth();
     const [title, setTitle] = useState('');
@@ -56,6 +57,7 @@ export function AddApplicationSheet({
     const [link, setLink] = useState('');
     const [description, setDescription] = useState('');
     const [resumeId, setResumeId] = useState<string>();
+    const [coverLetterId, setCoverLetterId] = useState<string>();
     const [status, setStatus] = useState<JobApplicationStatus>('Applied');
     const [appliedDate, setAppliedDate] = useState<Date | undefined>(new Date());
     
@@ -67,6 +69,7 @@ export function AddApplicationSheet({
                 setLink(application.job_link);
                 setDescription(application.job_description);
                 setResumeId(application.resume_id || undefined);
+                setCoverLetterId(application.cover_letter_id || undefined);
                 setStatus(application.status);
                 setAppliedDate(application.applied_date);
             } else {
@@ -76,6 +79,7 @@ export function AddApplicationSheet({
                 setLink('');
                 setDescription('');
                 setResumeId(resumes[0]?.resume_id);
+                setCoverLetterId(undefined);
                 setStatus('Applied');
                 setAppliedDate(new Date());
             }
@@ -98,6 +102,7 @@ export function AddApplicationSheet({
             job_link: link,
             job_description: description,
             resume_id: resumeId || '', // Make resume_id optional
+            cover_letter_id: coverLetterId || null, // Cover letter used
             status: status,
             applied_date: appliedDate
         };
@@ -162,6 +167,24 @@ export function AddApplicationSheet({
                 {resumes.map((resume) => (
                   <SelectItem key={resume.resume_id} value={resume.resume_id}>
                     {resume.resume_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="cover-letter" className="text-right">
+              Cover Letter Used <span className="text-muted-foreground">(Optional)</span>
+            </Label>
+            <Select value={coverLetterId || "none"} onValueChange={(value) => setCoverLetterId(value === "none" ? undefined : value)}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a cover letter (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No cover letter selected</SelectItem>
+                {coverLetters.map((coverLetter) => (
+                  <SelectItem key={coverLetter.cover_letter_id} value={coverLetter.cover_letter_id}>
+                    {coverLetter.cover_letter_name}
                   </SelectItem>
                 ))}
               </SelectContent>

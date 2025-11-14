@@ -115,8 +115,10 @@ export function AdminDashboard() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const searchLower = searchTerm.toLowerCase();
+    const nameMatch = user.name?.toLowerCase().includes(searchLower) || false;
+    const emailMatch = user.email?.toLowerCase().includes(searchLower) || false;
+    const matchesSearch = nameMatch || emailMatch;
     const matchesFilter = filterPlan === 'all' || user.subscriptionPlan === filterPlan;
     return matchesSearch && matchesFilter;
   });
@@ -306,8 +308,8 @@ export function AdminDashboard() {
                     <TableRow key={user.id}>
                       <TableCell>
                         <div>
-                          <div className="font-medium">{user.name}</div>
-                          <div className="text-sm text-muted-foreground">{user.email}</div>
+                          <div className="font-medium">{user.name || 'Unknown'}</div>
+                          <div className="text-sm text-muted-foreground">{user.email || 'No email'}</div>
                         </div>
                       </TableCell>
                       <TableCell>

@@ -2,8 +2,8 @@
 
 import { adminDb } from '@/lib/firebase-admin';
 import type { User } from '@/lib/types';
-import { getSchedule } from './schedules';
-import { getTodayTarget } from './targets';
+import { getSchedule } from './schedules-server';
+import { getTodayTarget } from './targets-server';
 
 
 const getUserDoc = (userId: string) => {
@@ -45,22 +45,40 @@ export const updateUserSettings = async (userId: string, settings: { schedule?: 
     const userData: any = {};
     if (settings.schedule) {
         // Update schedule in schedules collection
-        const { getSchedule, updateSchedule, addSchedule } = await import('./schedules');
+        const { updateSchedule, addSchedule } = await import('./schedules-server');
         const existingSchedule = await getSchedule(userId);
+        
+        console.log('📝 Updating schedule from Settings UI:', {
+            userId,
+            existingScheduleId: existingSchedule?.schedule_id,
+            scheduleData: settings.schedule,
+            reminder_time: settings.schedule.reminder_time,
+            summary_time: settings.schedule.summary_time,
+            email_enabled: settings.schedule.email_enabled,
+        });
+        
         if (existingSchedule) {
             await updateSchedule(userId, existingSchedule.schedule_id, settings.schedule);
+            console.log('✅ Schedule updated successfully');
         } else {
-            await addSchedule(userId, settings.schedule);
+            const scheduleId = await addSchedule(userId, settings.schedule);
+            console.log('✅ Schedule created successfully:', scheduleId);
         }
     }
     if (settings.target) {
         // Update target in targets collection
-        const { getTodayTarget, updateTarget, addTarget } = await import('./targets');
+        const { updateTarget, addTarget } = await import('./targets-server');
         const existingTarget = await getTodayTarget(userId);
         if (existingTarget) {
             await updateTarget(userId, existingTarget.target_id, settings.target);
         } else {
-            await addTarget(userId, settings.target);
+            // When creating a new target, make sure to set current_date to today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            await addTarget(userId, {
+                ...settings.target,
+                current_date: today
+            });
         }
     }
     

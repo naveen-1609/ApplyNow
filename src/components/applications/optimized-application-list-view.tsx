@@ -21,7 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
-import type { JobApplication, JobApplicationStatus, Resume } from '@/lib/types';
+import type { JobApplication, JobApplicationStatus, Resume, CoverLetter } from '@/lib/types';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -48,13 +48,15 @@ interface OptimizedApplicationListViewProps {
   onEdit: (app: JobApplication) => void;
   onDelete: (jobId: string) => void;
   resumes?: Resume[];
+  coverLetters?: CoverLetter[];
 }
 
 export function OptimizedApplicationListView({ 
   applications, 
   onEdit, 
   onDelete, 
-  resumes = [] 
+  resumes = [],
+  coverLetters = []
 }: OptimizedApplicationListViewProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [applicationToDelete, setApplicationToDelete] = useState<string | null>(null);
@@ -73,6 +75,11 @@ export function OptimizedApplicationListView({
   const getResumeName = (resumeId: string | null) => {
     if (!resumeId) return 'No resume';
     return resumes.find(r => r.resume_id === resumeId)?.resume_name || 'N/A';
+  };
+
+  const getCoverLetterName = (coverLetterId: string | null) => {
+    if (!coverLetterId) return 'No cover letter';
+    return coverLetters.find(cl => cl.cover_letter_id === coverLetterId)?.cover_letter_name || 'N/A';
   };
   
   const handleDeleteClick = (jobId: string) => {
@@ -98,6 +105,7 @@ export function OptimizedApplicationListView({
       </TableCell>
       <TableCell>{app.company_name}</TableCell>
       <TableCell className="hidden lg:table-cell">{getResumeName(app.resume_id)}</TableCell>
+      <TableCell className="hidden lg:table-cell">{getCoverLetterName(app.cover_letter_id)}</TableCell>
       <TableCell>{format(app.applied_date, 'MMM d, yyyy')}</TableCell>
       <TableCell>
         <Badge variant="outline" className={statusStyles[app.status]}>
@@ -133,6 +141,7 @@ export function OptimizedApplicationListView({
                 <TableHead>Job Title</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead className="hidden lg:table-cell">Resume Used</TableHead>
+                <TableHead className="hidden lg:table-cell">Cover Letter Used</TableHead>
                 <TableHead>Applied Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[70px]">Actions</TableHead>
@@ -179,6 +188,7 @@ export function OptimizedApplicationListView({
               <TableHead>Job Title</TableHead>
               <TableHead>Company</TableHead>
               <TableHead className="hidden lg:table-cell">Resume Used</TableHead>
+              <TableHead className="hidden lg:table-cell">Cover Letter Used</TableHead>
               <TableHead>Applied Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[70px]">Actions</TableHead>

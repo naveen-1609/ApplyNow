@@ -64,7 +64,6 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      console.log('🔄 Fetching global data for user:', user.uid);
       const data = await getCachedUserData(user.uid);
       
       setState(prev => ({
@@ -78,10 +77,8 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
         error: null,
         lastUpdated: Date.now(),
       }));
-
-      console.log('✅ Global data loaded successfully');
     } catch (error) {
-      console.error('❌ Failed to fetch global data:', error);
+      console.error('Failed to fetch global data:', error);
       setState(prev => ({
         ...prev,
         loading: false,
@@ -94,7 +91,6 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
   const refetch = useCallback(async () => {
     if (!user) return;
     
-    console.log('🔄 Refetching global data (bypassing cache)');
     globalCache.clear(); // Clear all caches before refetching
     await fetchData();
   }, [user, fetchData]);
@@ -103,7 +99,6 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
   const invalidateCache = useCallback(() => {
     if (user) {
       invalidateUserCache(user.uid);
-      console.log('🗑️ User cache invalidated');
     }
   }, [user]);
 

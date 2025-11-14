@@ -26,27 +26,20 @@ export function AdminAuth({ children }: AdminAuthProps) {
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   useEffect(() => {
-    console.log('AdminAuth - Auth state:', { 
-      user: user?.email, 
-      authLoading, 
-      profileLoading, 
-      isAdmin,
-      userProfile: !!userProfile 
-    });
-
     if (!authLoading && !profileLoading) {
       if (!user) {
-        console.log('AdminAuth - No user, redirecting to login');
         router.push('/login');
         return;
       }
       
       // Check if user is the hardcoded admin
-      if (user.email === 'naveenvenkat58@gmail.com') {
-        console.log('AdminAuth - Admin user detected, showing password form');
-        setShowPasswordForm(true);
+      const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
+      
+      if (isAdminEmail) {
+        // Grant immediate access for admin email
+        // Profile will be auto-upgraded to ADMIN if needed
+        setShowPasswordForm(false);
       } else {
-        console.log('AdminAuth - Non-admin user, denying access');
         toast({
           title: 'Access Denied',
           description: 'You do not have admin privileges.',
@@ -104,7 +97,9 @@ export function AdminAuth({ children }: AdminAuthProps) {
     return null; // Will redirect to login
   }
 
-  if (showPasswordForm) {
+  // Password form is no longer required - admin email gets immediate access
+  // Keeping this code for potential future use or manual admin addition
+  if (showPasswordForm && user.email?.toLowerCase() !== 'naveenvenkat58@gmail.com') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
@@ -155,7 +150,11 @@ export function AdminAuth({ children }: AdminAuthProps) {
     );
   }
 
-  if (user && user.email !== 'naveenvenkat58@gmail.com') {
+  // Only allow access for admin email (naveenvenkat58@gmail.com)
+  // This is the only email that should have admin access
+  const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
+  
+  if (!isAdminEmail) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-full max-w-md">

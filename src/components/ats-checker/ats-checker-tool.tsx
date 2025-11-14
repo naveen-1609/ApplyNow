@@ -27,7 +27,10 @@ import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
 import { ScrollArea } from '../ui/scroll-area';
 import { Input } from '../ui/input';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { useResumes } from '@/hooks/use-resumes';
+import { useOptimizedResumes } from '@/hooks/use-optimized-resumes';
+import { useCoverLetters } from '@/hooks/use-cover-letters';
+import { AddCoverLetterDialog } from '@/components/cover-letters/add-cover-letter-dialog';
+import Link from 'next/link';
 
 
 type ChatMessage = {
@@ -37,8 +40,10 @@ type ChatMessage = {
 
 export function AtsCheckerTool() {
   const { user } = useAuth();
-  const { resumes } = useResumes();
+  const { resumes, refetch } = useOptimizedResumes();
+  const { add: addCoverLetter } = useCoverLetters();
   const [jobDescription, setJobDescription] = useState('');
+  const [isAddCoverLetterDialogOpen, setIsAddCoverLetterDialogOpen] = useState(false);
   const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isChatting, setIsChatting] = useState(false);
@@ -61,6 +66,16 @@ export function AtsCheckerTool() {
   useEffect(() => {
     if (resumes.length > 0 && !selectedResumeId) {
       setSelectedResumeId(resumes[0].resume_id);
+    }
+    
+    // Debug: Log all resumes when they load
+    if (resumes.length > 0) {
+      console.log('📚 ATS Checker: Resumes loaded:', resumes.map(r => ({
+        id: r.resume_id,
+        name: r.resume_name,
+        hasText: !!r.editable_text && r.editable_text.length > 0,
+        textLength: r.editable_text?.length || 0
+      })));
     }
   }, [resumes, selectedResumeId]);
 
@@ -109,20 +124,102 @@ Ask me anything about improving your resume! For example:
             description: "Could not find the selected resume. Please try again.",
         });
         return;
-    };
+    }
+
+    // Validate resume text is available
+    console.log('🔍 Full resume object:', JSON.stringify({
+      resume_id: selectedResume.resume_id,
+      resume_name: selectedResume.resume_name,
+      editable_text: selectedResume.editable_text ? `${selectedResume.editable_text.substring(0, 50)}...` : 'EMPTY',
+      editable_text_length: selectedResume.editable_text?.length || 0,
+      editable_text_type: typeof selectedResume.editable_text,
+      allKeys: Object.keys(selectedResume)
+    }, null, 2));
+    
+    let resumeText = selectedResume.editable_text?.trim();
+    console.log('🔍 Resume validation:', {
+        resumeId: selectedResume.resume_id,
+        resumeName: selectedResume.resume_name,
+        hasEditableText: !!selectedResume.editable_text,
+        editableTextType: typeof selectedResume.editable_text,
+        editableTextValue: selectedResume.editable_text === null ? 'NULL' : selectedResume.editable_text === undefined ? 'UNDEFINED' : selectedResume.editable_text === '' ? 'EMPTY STRING' : 'HAS VALUE',
+        textLength: selectedResume.editable_text?.length || 0,
+        trimmedLength: resumeText?.length || 0,
+        firstChars: selectedResume.editable_text?.substring(0, 100) || 'N/A'
+    });
+    
+    // Clean up old error messages that might be in the resume text
+    if (resumeText && typeof resumeText === 'string') {
+        if (resumeText.includes('text extraction is not yet implemented') ||
+            resumeText.includes('has been uploaded successfully, but text extraction')) {
+            console.warn('⚠️ Detected old error message in resume text, treating as empty');
+            resumeText = '';
+        }
+    }
+    
+    if (!resumeText || resumeText.length === 0) {
+        console.error('❌ CRITICAL: Resume text is empty or missing', {
+            resumeId: selectedResume.resume_id,
+            resumeName: selectedResume.resume_name,
+            extractionWarning: selectedResume.extraction_warning,
+            editableTextExists: !!selectedResume.editable_text,
+            editableTextType: typeof selectedResume.editable_text,
+            editableTextValue: selectedResume.editable_text
+        });
+        toast({
+            variant: "destructive",
+            title: "Resume Text Unavailable",
+            description: `The resume "${selectedResume.resume_name}" has no extractable text. ${selectedResume.extraction_warning ? `Warning: ${selectedResume.extraction_warning}. ` : ''}Please go to the Resumes page and click "Edit Text" to manually add your resume content, or re-upload as a PDF file.`,
+            duration: 15000,
+        });
+        return;
+    }
+
+    // Additional validation: ensure resume text is meaningful
+    if (resumeText.length < 10) {
+        console.warn('⚠️ Resume text is very short:', resumeText.length, 'characters');
+        toast({
+            variant: "destructive",
+            title: "Resume Text Too Short",
+            description: `The resume text is too short (${resumeText.length} characters). Please ensure the resume has been properly extracted or manually add the text.`,
+        });
+        return;
+    }
 
     setIsLoading(true);
     setResult(null);
     setChatHistory([]);
     try {
         // Debug: Log the resume text being sent
-        console.log('Resume text being sent to ATS:', selectedResume.editable_text);
-        console.log('Resume text length:', selectedResume.editable_text?.length);
-        console.log('First 200 characters:', selectedResume.editable_text?.substring(0, 200));
+        console.log('✅ Sending resume text to ATS analysis:', {
+            textLength: resumeText.length,
+            firstChars: resumeText.substring(0, 200),
+            lastChars: resumeText.substring(Math.max(0, resumeText.length - 100))
+        });
+        
+        // Double-check before sending
+        if (!resumeText || resumeText.trim().length === 0) {
+            throw new Error('Resume text is empty. Cannot proceed with analysis.');
+        }
+        
+        // Final validation - ensure we have meaningful text
+        const finalResumeText = resumeText.trim();
+        const finalJobDesc = jobDescription.trim();
+        
+        console.log('🚀 Final check before API call:', {
+            resumeTextFinalLength: finalResumeText.length,
+            jobDescFinalLength: finalJobDesc.length,
+            resumeTextSample: finalResumeText.substring(0, 300),
+            willSend: finalResumeText.length > 0 && finalJobDesc.length > 0
+        });
+        
+        if (finalResumeText.length < 10) {
+            throw new Error(`Resume text is too short (${finalResumeText.length} characters). Minimum 10 characters required.`);
+        }
         
         const analysis = await analyzeResume({
-            jobDescription,
-            resumeText: selectedResume.editable_text,
+            jobDescription: finalJobDesc,
+            resumeText: finalResumeText,
         });
         setResult(analysis);
         setChatHistory([
@@ -146,6 +243,17 @@ Ask me anything about improving your resume! For example:
     const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
     if (!selectedResume) return;
 
+    // Validate resume text is available
+    const resumeText = selectedResume.editable_text?.trim();
+    if (!resumeText || resumeText.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Resume Text Unavailable",
+            description: "The selected resume does not have extractable text. Please re-upload the resume or edit the text manually.",
+        });
+        return;
+    }
+
     const newUserMessage: ChatMessage = { role: 'user', content: userMessage };
     setChatHistory(prev => [...prev, newUserMessage]);
     setUserMessage('');
@@ -154,7 +262,7 @@ Ask me anything about improving your resume! For example:
     try {
         const chatInput: ChatInput = {
             jobDescription,
-            resumeText: selectedResume.editable_text,
+            resumeText: resumeText,
             chatHistory: [...chatHistory, newUserMessage],
             userMessage: userMessage,
             atsAnalysis: result || undefined, // Include the ATS analysis results
@@ -195,13 +303,24 @@ Ask me anything about improving your resume! For example:
       return;
     }
 
+    // Validate resume text is available
+    const resumeText = selectedResume.editable_text?.trim();
+    if (!resumeText || resumeText.length === 0) {
+        toast({
+            variant: "destructive",
+            title: "Resume Text Unavailable",
+            description: "The selected resume does not have extractable text. Please re-upload the resume or edit the text manually in the Resumes page.",
+        });
+        return;
+    }
+
     setIsGeneratingCoverLetter(true);
     setCoverLetterResult(null);
 
     try {
       const coverLetterInput: CoverLetterInput = {
         jobDescription,
-        resumeText: selectedResume.editable_text,
+        resumeText: resumeText,
         companyName: companyName || undefined,
         jobTitle: jobTitle || undefined,
         tone: coverLetterTone,
@@ -256,6 +375,26 @@ Ask me anything about improving your resume! For example:
     }
   };
 
+  const handleAddToDirectory = async (name: string, text: string, companyName?: string, jobTitle?: string) => {
+    if (!user) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Required',
+        description: 'Please sign in to save cover letters.',
+      });
+      return;
+    }
+    
+    try {
+      await addCoverLetter(name, text, companyName, jobTitle);
+      // Success toast is handled in the hook
+    } catch (error) {
+      console.error('Error saving cover letter:', error);
+      // Error toast is handled in the hook, but we still throw to let dialog know
+      throw error;
+    }
+  };
+
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -275,18 +414,60 @@ Ask me anything about improving your resume! For example:
             onChange={(e) => setJobDescription(e.target.value)}
             disabled={isLoading}
           />
-          <Select onValueChange={setSelectedResumeId} value={selectedResumeId} disabled={isLoading || resumes.length === 0}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select a resume" />
-            </SelectTrigger>
-            <SelectContent>
-              {resumes.map((resume) => (
-                <SelectItem key={resume.resume_id} value={resume.resume_id}>
-                  {resume.resume_name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Select onValueChange={setSelectedResumeId} value={selectedResumeId} disabled={isLoading || resumes.length === 0}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a resume" />
+              </SelectTrigger>
+              <SelectContent>
+                {resumes.map((resume) => {
+                  const hasText = resume.editable_text?.trim()?.length > 0;
+                  return (
+                    <SelectItem key={resume.resume_id} value={resume.resume_id}>
+                      <div className="flex items-center gap-2">
+                        <span>{resume.resume_name}</span>
+                        {!hasText && (
+                          <span className="text-xs text-yellow-600">(No text)</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => refetch()} 
+              disabled={isLoading}
+              title="Refresh resumes"
+            >
+              🔄
+            </Button>
+          </div>
+          {selectedResumeId && (() => {
+            const selectedResume = resumes.find(r => r.resume_id === selectedResumeId);
+            if (!selectedResume) return null;
+            const hasText = selectedResume.editable_text?.trim()?.length > 0;
+            if (!hasText) {
+              return (
+                <div className="text-sm text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded space-y-2">
+                  <div className="font-medium">⚠️ No Resume Text Available</div>
+                  <div className="text-xs">
+                    This resume has no extractable text. To fix this:
+                  </div>
+                  <ol className="text-xs list-decimal list-inside space-y-1 ml-2">
+                    <li>Go to <strong>Resumes</strong> page</li>
+                    <li>Click <strong>Edit Text</strong> on this resume</li>
+                    <li>Paste your resume content</li>
+                    <li>Click <strong>Save Changes</strong></li>
+                    <li>Return here and click <strong>🔄 Refresh</strong> button</li>
+                  </ol>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </CardContent>
         <CardFooter>
           <Button onClick={handleAnalyze} disabled={isLoading || resumes.length === 0} className="w-full">
@@ -629,6 +810,10 @@ Ask me anything about improving your resume! For example:
                     <Download className="h-4 w-4 mr-2" />
                     Download
                   </Button>
+                  <Button size="sm" onClick={() => setIsAddCoverLetterDialogOpen(true)}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Add to Directory
+                  </Button>
                 </div>
               </div>
             </CardHeader>
@@ -701,6 +886,15 @@ Ask me anything about improving your resume! For example:
             </Card>
         )}
       </div>
+
+      <AddCoverLetterDialog
+        isOpen={isAddCoverLetterDialogOpen}
+        onOpenChange={setIsAddCoverLetterDialogOpen}
+        onSave={handleAddToDirectory}
+        defaultText={coverLetterResult?.coverLetter || ''}
+        defaultCompanyName={companyName}
+        defaultJobTitle={jobTitle}
+      />
     </div>
   );
 }

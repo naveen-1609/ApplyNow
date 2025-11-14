@@ -34,7 +34,7 @@ export function PricingPage() {
       return;
     }
     
-    // For paid plans, open payment modal
+    // For paid plans, open embedded checkout modal
     setSelectedPlan(plan);
     setPaymentModalOpen(true);
   };
@@ -230,7 +230,7 @@ export function PricingPage() {
         </div>
       </div>
 
-      {/* Payment Modal */}
+      {/* Embedded Payment Modal */}
       {selectedPlan && (
         <PaymentModal
           isOpen={paymentModalOpen}

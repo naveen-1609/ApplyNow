@@ -1,5 +1,6 @@
 'use client';
 
+import { memo, useMemo } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -24,26 +25,37 @@ import {
   ScanSearch,
   User,
   Shield,
+  Crown,
+  Mail,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-optimized-auth';
+import { useSubscription } from '@/hooks/use-subscription';
 
 const navItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/applications', icon: Briefcase, label: 'Applications' },
   { href: '/resumes', icon: FileText, label: 'Resumes' },
+  { href: '/cover-letters', icon: Mail, label: 'Cover Letters' },
   { href: '/ats-checker', icon: ScanSearch, label: 'ATS Checker' },
   { href: '/targets', icon: Target, label: 'Targets' },
+  { href: '/subscriptions', icon: Crown, label: 'Subscriptions' },
   { href: '/profile', icon: User, label: 'Profile' },
   { href: '/settings', icon: Settings, label: 'Settings' },
 ];
 
-export function AppSidebar() {
+export const AppSidebar = memo(function AppSidebar() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const { isAdmin } = useSubscription();
 
   if (!user) return null;
 
-  const isAdmin = user.email === 'naveenvenkat58@gmail.com';
+  // Check if user is admin - use email check as primary (for immediate access)
+  // and profile check as secondary (for consistency)
+  const isAdminUser = useMemo(
+    () => user.email?.toLowerCase() === 'naveenvenkat58@gmail.com' || isAdmin,
+    [user.email, isAdmin]
+  );
 
   return (
     <Sidebar>
@@ -70,8 +82,8 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
           
-          {/* Admin Dashboard Link */}
-          {isAdmin && (
+          {/* Admin Dashboard Link - Only visible for admin email */}
+          {isAdminUser && (
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
@@ -106,4 +118,4 @@ export function AppSidebar() {
       </SidebarFooter>
     </Sidebar>
   );
-}
+});

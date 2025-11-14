@@ -29,10 +29,17 @@ export function SetTargetCard({ currentTarget, onTargetSaved }: SetTargetCardPro
         setIsSaving(true);
         try {
             await updateUserSettings(user.uid, { target: { daily_target: dailyTarget } });
+            
+            // Update local state immediately for better UX
+            // The refetch will confirm the update from the server
+            setDailyTarget(dailyTarget);
+            
             toast({
                 title: 'Target Updated',
                 description: `Your daily application target is now ${dailyTarget}.`,
             });
+            
+            // Call onTargetSaved to trigger refetch
             onTargetSaved();
         } catch (error) {
             console.error("Failed to save target:", error);

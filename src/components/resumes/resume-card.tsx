@@ -96,9 +96,28 @@ export function ResumeCard({ resume, onDelete, onSaveText }: ResumeCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="flex-1">
+      <CardContent className="flex-1 space-y-2">
+        {!resume.editable_text || resume.editable_text.trim().length === 0 ? (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-1">
+              ⚠️ No Text Extracted
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+              This resume has no extractable text. Click "Edit Text" to manually add the resume content, or re-upload as a PDF file.
+            </p>
+          </div>
+        ) : resume.editable_text.trim().length < 100 ? (
+          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-1">
+              ⚠️ Limited Text Extracted
+            </p>
+            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+              Only {resume.editable_text.trim().length} characters were extracted. Please review and edit the text manually.
+            </p>
+          </div>
+        ) : null}
         <p className="text-sm text-muted-foreground line-clamp-3">
-          {resume.editable_text}
+          {resume.editable_text || 'No text available. Click "Edit Text" to add resume content.'}
         </p>
       </CardContent>
       <CardFooter>

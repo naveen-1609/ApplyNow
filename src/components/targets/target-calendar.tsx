@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { memo, useState, useMemo } from 'react';
 import {
   startOfMonth,
   endOfMonth,
@@ -25,7 +25,7 @@ type TargetCalendarProps = {
   dailyTarget: number;
 };
 
-export function TargetCalendar({ applications, dailyTarget }: TargetCalendarProps) {
+export const TargetCalendar = memo(function TargetCalendar({ applications, dailyTarget }: TargetCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const applicationsByDate = useMemo(() => {
@@ -105,4 +105,4 @@ export function TargetCalendar({ applications, dailyTarget }: TargetCalendarProp
       </div>
     </div>
   );
-}
+});
