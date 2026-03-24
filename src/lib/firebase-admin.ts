@@ -1,57 +1,66 @@
 import { initializeApp, getApps, cert, type ServiceAccount, type App } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type Firestore } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import type { Auth } from 'firebase-admin/auth';
+import { firebaseAdminAppName, firebaseEnvironment, getAdminFirebaseConfig } from '@/lib/firebase-config';
 
-const firebaseProjectId =
-  process.env.FIREBASE_PROJECT_ID ||
-  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
-  'applynow-e1239';
-const firebaseAdminClientEmail =
-  process.env.FIREBASE_ADMIN_CLIENT_EMAIL ||
-  process.env.FIREBASE_CLIENT_EMAIL;
-const firebaseAdminPrivateKey = (
-  process.env.FIREBASE_ADMIN_PRIVATE_KEY ||
-  process.env.FIREBASE_PRIVATE_KEY
-)?.replace(/\\n/g, '\n');
-
-// Service account configuration
-const serviceAccount: ServiceAccount = {
-  projectId: firebaseProjectId,
-  privateKey: firebaseAdminPrivateKey,
-  clientEmail: firebaseAdminClientEmail,
-};
-
-// Initialize Firebase Admin SDK
-let adminApp: App;
-if (getApps().length === 0) {
-  try {
-    const hasServiceAccountCredentials = Boolean(
-      serviceAccount.privateKey && serviceAccount.clientEmail
-    );
-
-    if (!hasServiceAccountCredentials) {
-      console.warn('Firebase Admin SDK is missing explicit service account credentials. Firestore admin operations will fail until FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or FIREBASE_ADMIN_CLIENT_EMAIL/FIREBASE_ADMIN_PRIVATE_KEY are set.');
-    }
-
-    adminApp = initializeApp({
-      projectId: firebaseProjectId,
-      ...(hasServiceAccountCredentials
-        ? { credential: cert(serviceAccount) }
-        : {}),
-      storageBucket: `${firebaseProjectId}.firebasestorage.app`,
-    });
-    console.log('Firebase Admin SDK initialized successfully');
-  } catch (error) {
-    console.error('Firebase Admin SDK initialization error:', error);
-    throw error;
-  }
-} else {
-  adminApp = getApps()[0];
+declare global {
+  var __applyNowAdminApp__: App | undefined;
+  var __applyNowAdminDb__: Firestore | undefined;
+  var __applyNowAdminWarnedCredentials__: boolean | undefined;
 }
 
-// Export admin services
-export const adminDb = getFirestore(adminApp);
+function initializeAdminApp(): App {
+  if (globalThis.__applyNowAdminApp__) {
+    return globalThis.__applyNowAdminApp__;
+  }
+
+  const config = getAdminFirebaseConfig();
+  if (!config.projectId) {
+    throw new Error(
+      `Missing Firebase Admin project ID for the ${firebaseEnvironment} environment. ` +
+      'Set FIREBASE_ADMIN_PROJECT_ID, FIREBASE_PROJECT_ID, or the environment-scoped equivalent.'
+    );
+  }
+
+  const existingApp = getApps().find((candidate) => candidate.name === firebaseAdminAppName);
+  if (existingApp) {
+    globalThis.__applyNowAdminApp__ = existingApp;
+    return existingApp;
+  }
+
+  const hasServiceAccountCredentials = Boolean(config.privateKey && config.clientEmail);
+  if (!hasServiceAccountCredentials && !globalThis.__applyNowAdminWarnedCredentials__) {
+    console.warn(
+      `Firebase Admin SDK for the ${firebaseEnvironment} environment is missing explicit service account credentials. ` +
+      'Server-side Firestore operations require FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY ' +
+      'or their environment-scoped equivalents.'
+    );
+    globalThis.__applyNowAdminWarnedCredentials__ = true;
+  }
+
+  const serviceAccount: ServiceAccount = {
+    projectId: config.projectId,
+    privateKey: config.privateKey,
+    clientEmail: config.clientEmail,
+  };
+
+  const app = initializeApp(
+    {
+      projectId: config.projectId,
+      ...(hasServiceAccountCredentials ? { credential: cert(serviceAccount) } : {}),
+      ...(config.storageBucket ? { storageBucket: config.storageBucket } : {}),
+    },
+    firebaseAdminAppName
+  );
+
+  globalThis.__applyNowAdminApp__ = app;
+  return app;
+}
+
+export const adminApp = initializeAdminApp();
+export const adminDb = globalThis.__applyNowAdminDb__ ?? getFirestore(adminApp);
+globalThis.__applyNowAdminDb__ = adminDb;
 export const adminStorage = getStorage(adminApp);
 
 export async function getAdminAuth(): Promise<Auth> {
@@ -59,4 +68,4 @@ export async function getAdminAuth(): Promise<Auth> {
   return getAuth(adminApp);
 }
 
-export { adminApp, Timestamp };
+export { Timestamp };

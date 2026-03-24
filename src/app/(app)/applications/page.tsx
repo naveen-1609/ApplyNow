@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, List, LayoutGrid } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { endOfDay, format, parseISO, startOfDay } from 'date-fns';
+import { CalendarRange, Download, LayoutGrid, List, PlusCircle, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OptimizedApplicationListView } from '@/components/applications/optimized-application-list-view';
 import { ApplicationGridView } from '@/components/applications/application-grid-view';
@@ -16,6 +19,23 @@ import { useCoverLetters } from '@/hooks/use-cover-letters';
 import { addApplication, updateApplication, deleteApplication } from '@/lib/services/applications';
 import { CompactFastLoader } from '@/components/ui/fast-loader';
 import { logger } from '@/lib/utils/logger';
+
+function escapeCsvValue(value: string) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function toBoundaryDate(value: string, boundary: 'start' | 'end') {
+  if (!value) {
+    return null;
+  }
+
+  const parsedDate = parseISO(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  return boundary === 'start' ? startOfDay(parsedDate) : endOfDay(parsedDate);
+}
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
@@ -33,6 +53,8 @@ export default function ApplicationsPage() {
   const { coverLetters, add: addCoverLetterToDirectory } = useCoverLetters();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   const handleAddApplication = () => {
     setEditingApplication(null);
@@ -121,12 +143,84 @@ export default function ApplicationsPage() {
       }
   }
 
+  const filteredApplications = useMemo(() => {
+    const fromBoundary = toBoundaryDate(fromDate, 'start');
+    const toBoundary = toBoundaryDate(toDate, 'end');
+
+    return applications.filter((application) => {
+      if (fromBoundary && application.applied_date < fromBoundary) {
+        return false;
+      }
+
+      if (toBoundary && application.applied_date > toBoundary) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [applications, fromDate, toDate]);
+
+  const isDateFilterActive = Boolean(fromDate || toDate);
+
+  const handleClearDateFilter = () => {
+    setFromDate('');
+    setToDate('');
+  };
+
+  const handleExportApplications = () => {
+    if (filteredApplications.length === 0) {
+      return;
+    }
+
+    const csvRows = [
+      [
+        'Applied Date',
+        'Company',
+        'Job Title',
+        'Status',
+        'Job Link',
+        'Resume Id',
+        'Cover Letter Id',
+        'Job Description',
+      ].join(','),
+      ...filteredApplications.map((application) =>
+        [
+          escapeCsvValue(format(application.applied_date, 'yyyy-MM-dd')),
+          escapeCsvValue(application.company_name || ''),
+          escapeCsvValue(application.job_title || ''),
+          escapeCsvValue(application.status || ''),
+          escapeCsvValue(application.job_link || ''),
+          escapeCsvValue(application.resume_id || ''),
+          escapeCsvValue(application.cover_letter_id || ''),
+          escapeCsvValue(application.job_description || ''),
+        ].join(',')
+      ),
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const rangeSuffix = `${fromDate || 'all'}-to-${toDate || 'all'}`;
+
+    link.href = url;
+    link.download = `applications-${rangeSuffix}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-8">
       <PageHeader
         title="Job Applications"
-        description={loading ? "Loading applications..." : `You have tracked ${applications.length} applications.`}
+        description={
+          loading
+            ? 'Loading applications...'
+            : isDateFilterActive
+              ? `Showing ${filteredApplications.length} of ${applications.length} applications in the selected date range.`
+              : `You have tracked ${applications.length} applications.`
+        }
       >
         <Button onClick={handleAddApplication}>
           <PlusCircle className="mr-2" />
@@ -139,18 +233,60 @@ export default function ApplicationsPage() {
               <CompactFastLoader />
         </div>
       ) : (
+      <>
+      <div className="rounded-xl border border-border/60 bg-card/40 p-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="applications-from-date">From</Label>
+              <Input
+                id="applications-from-date"
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="applications-to-date">To</Label>
+              <Input
+                id="applications-to-date"
+                type="date"
+                value={toDate}
+                onChange={(event) => setToDate(event.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button type="button" variant="outline" onClick={handleClearDateFilter} disabled={!isDateFilterActive}>
+                <X className="mr-2 h-4 w-4" />
+                Clear
+              </Button>
+            </div>
+            <div className="flex items-end">
+              <Button type="button" onClick={handleExportApplications} disabled={filteredApplications.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CalendarRange className="h-4 w-4" />
+            <span>{filteredApplications.length} applications match this range</span>
+          </div>
+        </div>
+      </div>
       <Tabs defaultValue="grid">
         <TabsList>
           <TabsTrigger value="grid"><LayoutGrid className="mr-2 h-4 w-4" />Grid View</TabsTrigger>
           <TabsTrigger value="list"><List className="mr-2 h-4 w-4" />List View</TabsTrigger>
         </TabsList>
         <TabsContent value="grid" className="mt-6">
-          <ApplicationGridView applications={applications} onEdit={handleEditApplication} />
+          <ApplicationGridView applications={filteredApplications} onEdit={handleEditApplication} />
         </TabsContent>
         <TabsContent value="list" className="mt-6">
-          <OptimizedApplicationListView applications={applications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} resumes={resumes} coverLetters={coverLetters} />
+          <OptimizedApplicationListView applications={filteredApplications} onEdit={handleEditApplication} onDelete={handleDeleteApplication} resumes={resumes} coverLetters={coverLetters} />
         </TabsContent>
       </Tabs>
+      </>
       )}
       
       <AddApplicationSheet

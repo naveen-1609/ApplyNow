@@ -1,78 +1,90 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function ownsExistingDocument() {
+      return isSignedIn() && resource.data.user_id == request.auth.uid;
+    }
+
+    function ownsIncomingDocument() {
+      return isSignedIn() && request.resource.data.user_id == request.auth.uid;
+    }
+
     // Users can only access their own profile (with admin access)
     match /users/{userId} {
-      allow read: if request.auth != null && 
-        (request.auth.uid == userId || 
-         request.auth.token.email == 'naveenvenkat58@gmail.com' || 
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true));
-      // Users can write their own profile, BUT cannot modify subscription fields directly
-      // Subscription updates should ONLY happen via server-side webhooks
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        // Prevent direct modification of subscription fields
+      allow read: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) &&
         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['subscriptionPlan', 'subscriptionStatus', 'subscriptionStartDate', 'subscriptionEndDate']);
-      allow create: if request.auth != null && request.auth.uid == userId;
+      allow create: if isOwner(userId);
     }
     
-    // Users can only access their own notes
     match /users/{userId}/notes/{noteId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      // Allow public read access for shared notes
+      allow read, write: if isOwner(userId);
       allow read: if resource.data.shared == true;
     }
     
-    // Users can only access their own note versions
     match /users/{userId}/notes/{noteId}/versions/{versionId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
     }
     
-    // Users can only access their own job applications
     match /job_applications/{applicationId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
     }
     
-    // Users can only access their own resumes
     match /resumes/{resumeId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
     }
     
-    // Users can only access their own cover letters
     match /cover_letters/{coverLetterId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
     }
     
-    // Users can only access their own targets
     match /targets/{targetId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
     }
     
-    // Users can only access their own schedules
     match /schedules/{scheduleId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow write: if request.auth != null && request.auth.uid == resource.data.user_id;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.user_id;
+      allow read: if ownsExistingDocument();
+      allow create: if ownsIncomingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow delete: if ownsExistingDocument();
     }
     
-    // Subscription transactions - users can only access their own
     match /subscription_transactions/{transactionId} {
-      allow read, write: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow read, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
+      allow update: if isSignedIn() &&
+        request.auth.uid == resource.data.userId &&
+        request.auth.uid == request.resource.data.userId;
     }
     
-    // Admin users collection - only admins can access
     match /admin_users/{adminId} {
-      allow read, write: if request.auth != null && 
-        (request.auth.token.email == 'naveenvenkat58@gmail.com' || 
-         exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true);
+      allow read, write: if isAdmin();
     }
   }
 }

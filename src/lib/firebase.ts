@@ -1,122 +1,88 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth, connectAuthEmulator } from 'firebase/auth';
-import { 
-  getFirestore, 
-  type Firestore, 
-  connectFirestoreEmulator,
-  enableNetwork,
-  disableNetwork,
+import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { getAuth, type Auth } from 'firebase/auth';
+import {
+  CACHE_SIZE_UNLIMITED,
+  getFirestore,
   initializeFirestore,
-  CACHE_SIZE_UNLIMITED
+  type Firestore,
 } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage, connectStorageEmulator } from 'firebase/storage';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import {
+  firebaseAppName,
+  firebaseEnvironment,
+  getClientFirebaseConfig,
+  hasRequiredClientFirebaseConfig,
+} from '@/lib/firebase-config';
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+type FirebaseClientServices = {
+  app: FirebaseApp | null;
+  auth: Auth | null;
+  db: Firestore | null;
+  storage: FirebaseStorage | null;
 };
 
-let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
+declare global {
+  var __applyNowFirebaseClient__: FirebaseClientServices | undefined;
+  var __applyNowFirebaseWarnedConfig__: boolean | undefined;
+}
 
-// Initialize Firebase with aggressive performance optimizations
-function initializeFirebase() {
-  if (!firebaseConfig.apiKey) {
-    console.error('Firebase configuration is missing. Please check your environment variables.');
-    return;
+function getFirebaseAppInstance(config: ReturnType<typeof getClientFirebaseConfig>) {
+  const existingApp = getApps().find((candidate) => candidate.name === firebaseAppName);
+  return existingApp ?? initializeApp(config, firebaseAppName);
+}
+
+function initializeFirebaseClient(): FirebaseClientServices {
+  if (globalThis.__applyNowFirebaseClient__) {
+    return globalThis.__applyNowFirebaseClient__;
   }
 
+  const config = getClientFirebaseConfig();
+
+  if (!hasRequiredClientFirebaseConfig(config)) {
+    if (!globalThis.__applyNowFirebaseWarnedConfig__) {
+      console.warn(
+        `Firebase client configuration for the ${firebaseEnvironment} environment is incomplete. ` +
+        'Set the NEXT_PUBLIC_FIREBASE_* environment variables before using Firestore.'
+      );
+      globalThis.__applyNowFirebaseWarnedConfig__ = true;
+    }
+
+    const emptyServices: FirebaseClientServices = {
+      app: null,
+      auth: null,
+      db: null,
+      storage: null,
+    };
+
+    globalThis.__applyNowFirebaseClient__ = emptyServices;
+    return emptyServices;
+  }
+
+  const app = getFirebaseAppInstance(config);
+  const auth = getAuth(app);
+
+  let db: Firestore;
   try {
-    // Initialize app
-    app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-    console.log('✅ Firebase app initialized');
-    
-    // Initialize auth
-    auth = getAuth(app);
-    console.log('✅ Firebase auth initialized');
-    
-    // Initialize Firestore with performance optimizations
-    if (typeof window !== 'undefined') {
-      try {
-        // Use initializeFirestore for better control
-        db = initializeFirestore(app, {
-          cacheSizeBytes: CACHE_SIZE_UNLIMITED,
-          ignoreUndefinedProperties: true,
-        });
-        console.log('✅ Firebase Firestore initialized with optimizations');
-        
-        // Enable offline persistence
-        enableNetwork(db).then(() => {
-          console.log('✅ Firestore network enabled');
-        }).catch((error) => {
-          console.warn('⚠️ Failed to enable Firestore network:', error);
-        });
-      } catch (firestoreError) {
-        console.warn('⚠️ Failed to initialize Firestore with optimizations, falling back to standard initialization:', firestoreError);
-        db = getFirestore(app);
-        console.log('✅ Firebase Firestore initialized (standard)');
-      }
-    } else {
-      db = getFirestore(app);
-      console.log('✅ Firebase Firestore initialized (server-side)');
-    }
-    
-    // Initialize storage
-    const bucketName = firebaseConfig.storageBucket?.trim();
-    storage = bucketName ? getStorage(app, `gs://${bucketName}`) : getStorage(app);
-    console.log('✅ Firebase storage initialized');
-    
-    // Performance optimizations
-    if (typeof window !== 'undefined') {
-      // Preload critical data with delay
-      setTimeout(() => {
-        preloadCriticalData();
-      }, 2000);
-    }
-    
-    console.log('🎉 Firebase initialized successfully with optimizations');
-  } catch (e) {
-    console.error('❌ Firebase initialization error:', e);
+    db = initializeFirestore(app, {
+      cacheSizeBytes: CACHE_SIZE_UNLIMITED,
+      ignoreUndefinedProperties: true,
+    });
+  } catch {
+    db = getFirestore(app);
   }
+
+  const bucketName = config.storageBucket?.trim();
+  const storage = bucketName ? getStorage(app, `gs://${bucketName}`) : getStorage(app);
+
+  const services: FirebaseClientServices = { app, auth, db, storage };
+  globalThis.__applyNowFirebaseClient__ = services;
+
+  return services;
 }
 
-// Preload critical data for better performance
-async function preloadCriticalData() {
-  if (!db) return;
-  
-  try {
-    // Preload common collections to cache
-    const { collection, getDocs, query, limit } = await import('firebase/firestore');
-    
-    // Preload with small limits to avoid overwhelming
-    const collections = ['job_applications', 'resumes', 'targets'];
-    
-    for (const collectionName of collections) {
-      try {
-        const col = collection(db, collectionName);
-        const q = query(col, limit(10));
-        await getDocs(q);
-        console.log(`Preloaded ${collectionName} collection`);
-      } catch (error) {
-        console.warn(`Failed to preload ${collectionName}:`, error);
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to preload critical data:', error);
-  }
-}
+const services = initializeFirebaseClient();
 
-// Initialize Firebase immediately (only in browser)
-if (typeof window !== 'undefined') {
-  initializeFirebase();
-}
-
-export { app, auth, db, storage };
+export const app = services.app;
+export const auth = services.auth;
+export const db = services.db;
+export const storage = services.storage;
