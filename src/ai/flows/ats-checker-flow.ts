@@ -10,7 +10,7 @@
  * - ChatOutput - The return type for the chatWithResumeAssistant function.
  */
 
-import { ai } from '@/ai/genkit';
+import { ai, ANTHROPIC_PRIMARY_MODEL, OPENAI_FALLBACK_MODEL, readServerEnv } from '@/ai/genkit';
 import { z } from 'genkit';
 
 // Schema for Initial Analysis
@@ -39,12 +39,92 @@ const AtsAnalysisOutputSchema = z.object({
     soft_skills: z.array(z.string()).describe('List of desired soft skills'),
     industry_focus: z.string().describe('Industry or domain focus'),
     experience_required: z.string().describe('Years of experience required'),
+    seniority_level: z.string().optional().describe('Expected seniority level inferred from the JD'),
+    reporting_scope: z.string().optional().describe('Expected scope of ownership, team leadership, or stakeholder influence'),
   }),
   resume_fit: z.object({
     found: z.array(z.string()).describe('Requirements that are clearly met in the resume'),
     partial: z.array(z.string()).describe('Requirements that are partially met'),
     missing: z.array(z.string()).describe('Requirements that are missing from the resume'),
   }),
+  seniority_analysis: z.object({
+    expected_level: z.string().describe('Expected level from the JD, such as Senior IC, Staff, Manager, Director'),
+    resume_level: z.string().describe('Level implied by the resume based on scope, titles, ownership, and impact'),
+    alignment: z.enum(['strong', 'partial', 'weak']).describe('Whether the resume supports the expected seniority level'),
+    rationale: z.string().describe('2-3 sentence explanation of the seniority comparison'),
+    evidence: z.array(z.string()).describe('Specific resume signals that support the inferred seniority level'),
+    gaps: z.array(z.string()).describe('Missing or weak seniority signals that reduce confidence'),
+  }).optional(),
+  responsibility_evidence: z.object({
+    summary: z.string().describe('Overall assessment of whether the resume proves the candidate can perform the job responsibilities'),
+    proven: z.array(
+      z.object({
+        responsibility: z.string().describe('Responsibility from the JD'),
+        evidence: z.array(z.string()).describe('Resume evidence showing this responsibility is demonstrated'),
+        strength: z.enum(['strong', 'moderate']).describe('Strength of the proof in the resume'),
+      })
+    ).describe('Responsibilities clearly or moderately supported by resume evidence'),
+    weak_or_missing: z.array(
+      z.object({
+        responsibility: z.string().describe('Responsibility from the JD'),
+        gap_reason: z.string().describe('Why the resume does not prove this responsibility strongly enough'),
+        improvement_hint: z.string().describe('How the user should strengthen the resume for this responsibility'),
+      })
+    ).describe('Responsibilities that are weakly supported or missing'),
+  }).optional(),
+  experience_alignment: z.object({
+    required_profile: z.string().describe('The experience profile the JD appears to ask for'),
+    resume_profile: z.string().describe('The experience profile implied by the resume'),
+    alignment: z.enum(['strong', 'partial', 'weak']).describe('Whether the resume aligns with the expected experience profile'),
+    rationale: z.string().describe('Explanation of how the resume compares to the role’s expected experience depth and scope'),
+    missing_experience_signals: z.array(z.string()).describe('Specific experience signals the JD expects but the resume does not demonstrate strongly'),
+  }).optional(),
+  impact_evidence: z.object({
+    summary: z.string().describe('Assessment of how well the resume demonstrates measurable outcomes and execution quality'),
+    strong_examples: z.array(z.string()).describe('Bullets or achievements that clearly show business or technical impact'),
+    weak_spots: z.array(z.string()).describe('Areas where the resume lacks metrics, scope, or outcomes'),
+  }).optional(),
+  keyword_alignment: z.object({
+    exact_matches: z.array(z.string()).describe('Important JD terms clearly present in the resume'),
+    adjacent_matches: z.array(z.string()).describe('Concepts that are present but phrased differently in the resume'),
+    high_value_missing: z.array(z.string()).describe('Important keywords or phrases from the JD that are missing'),
+  }).optional(),
+  recruiter_signals: z.object({
+    leadership: z.string().describe('Assessment of leadership evidence in the resume'),
+    ownership: z.string().describe('Assessment of ownership/accountability signals in the resume'),
+    business_impact: z.string().describe('Assessment of measurable outcomes and business impact'),
+    collaboration: z.string().describe('Assessment of cross-functional or stakeholder collaboration evidence'),
+    ats_readability: z.string().describe('Assessment of readability and parsing risk'),
+  }).optional(),
+  hiring_readiness: z.object({
+    recruiter_screen: z.enum(['likely', 'borderline', 'unlikely']).describe('Whether the resume is likely to pass an initial recruiter screen'),
+    hiring_manager_review: z.enum(['likely', 'borderline', 'unlikely']).describe('Whether the resume is likely to create confidence with a hiring manager'),
+    rationale: z.string().describe('Short explanation of the overall hiring-readiness outlook'),
+  }).optional(),
+  responsibility_matrix: z.array(
+    z.object({
+      area: z.string().describe('A major responsibility or execution area from the JD'),
+      jd_expectation: z.string().describe('What the JD expects in this area'),
+      resume_evidence: z.string().describe('What the resume currently shows for this area'),
+      confidence: z.enum(['high', 'medium', 'low']).describe('Confidence that the resume proves this area'),
+      gap: z.string().describe('What is missing or weak for this area'),
+    })
+  ).optional().describe('Structured matrix comparing the JD responsibilities to the resume evidence'),
+  interview_risks: z.array(
+    z.object({
+      risk: z.string().describe('A likely concern a recruiter or hiring manager may raise'),
+      why_it_matters: z.string().describe('Why this concern could reduce confidence'),
+      mitigation: z.string().describe('How to reduce this risk in the resume'),
+    })
+  ).optional().describe('Likely interview or screening risks based on the resume'),
+  rewrite_priorities: z.array(
+    z.object({
+      section: z.string().describe('Resume section or area that should be improved'),
+      priority: z.enum(['high', 'medium', 'low']).describe('Priority level'),
+      action: z.string().describe('Recommended rewrite or improvement action'),
+      expected_benefit: z.string().describe('Why this change matters for ATS or recruiter review'),
+    })
+  ).optional().describe('Prioritized rewrite opportunities'),
   current_problems: z.array(z.string()).describe('List of current resume issues'),
   improvement_suggestions: z.array(z.string()).describe('Prioritized actionable improvement suggestions'),
   predicted_score_improvement: z.object({
@@ -94,6 +174,61 @@ const CoverLetterOutputSchema = z.object({
 });
 export type CoverLetterOutput = z.infer<typeof CoverLetterOutputSchema>;
 
+const CoverLetterTemplateInputSchema = z.object({
+  templateText: z.string().min(1, 'Template text is required.'),
+  templateVariables: z.array(z.string()).default([]),
+  jobDescription: z.string().min(1, 'Job description is required.'),
+  resumeText: z.string().min(1, 'Resume text is required.'),
+  companyName: z.string().optional(),
+  jobTitle: z.string().optional(),
+});
+export type CoverLetterTemplateInput = z.infer<typeof CoverLetterTemplateInputSchema>;
+
+const CoverLetterTemplateOutputSchema = z.object({
+  renderedCoverLetter: z.string().describe('The final cover letter with template variables replaced.'),
+  replacements: z.array(
+    z.object({
+      variable: z.string(),
+      value: z.string(),
+    })
+  ).describe('Detected template variable replacements.'),
+  notes: z.array(z.string()).describe('Short notes about replacement choices and any fallback assumptions.'),
+});
+export type CoverLetterTemplateOutput = z.infer<typeof CoverLetterTemplateOutputSchema>;
+
+async function executeWithProviderFallback<I, O>(
+  executor: (input: I, model: string) => Promise<O>,
+  input: I,
+  flowName: string
+): Promise<O> {
+  const anthropicApiKey = readServerEnv('ANTHROPIC_ADMIN_API_KEY');
+  const openAiApiKey = readServerEnv('OPENAI_API_KEY');
+  const failures: string[] = [];
+
+  if (anthropicApiKey) {
+    try {
+      return await executor(input, ANTHROPIC_PRIMARY_MODEL);
+    } catch (error) {
+      console.warn(`[ATS:${flowName}] Anthropic primary failed, falling back to OpenAI.`, error);
+      failures.push(`Anthropic failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else {
+    failures.push('Anthropic key missing');
+  }
+
+  if (openAiApiKey) {
+    try {
+      return await executor(input, OPENAI_FALLBACK_MODEL);
+    } catch (error) {
+      failures.push(`OpenAI fallback failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else {
+    failures.push('OpenAI key missing');
+  }
+
+  throw new Error(`${flowName} failed. ${failures.join(' | ')}`);
+}
+
 
 // Initial Analysis Flow
 const analysisPrompt = ai.definePrompt({
@@ -138,7 +273,8 @@ Then you MUST:
 4. In current_problems, add: "Resume text content was not available for analysis - the document text could not be extracted"
 5. In role_expectations.summary, state: "Unable to extract role expectations comparison as resume content was not available"
 6. Set all resume_fit arrays (found, partial, missing) to empty arrays
-7. Do NOT attempt to analyze non-existent content - do not make up or infer resume details
+7. Set seniority_analysis, responsibility_evidence, experience_alignment, impact_evidence, keyword_alignment, recruiter_signals, hiring_readiness, responsibility_matrix, interview_risks, and rewrite_priorities to null or omit them
+8. Do NOT attempt to analyze non-existent content - do not make up or infer resume details
 
 ONLY proceed with full analysis if the Resume Text section contains actual, meaningful resume content (skills, experience, education, etc.).
 
@@ -187,17 +323,72 @@ ANALYSIS SECTIONS
    - Weaknesses: where they partially meet or miss.
    - Overall verdict (Strong Fit / Moderate Fit / Weak Fit).
 
-7. **Current Problems**
+7. **Seniority and Scope Review**
+   Infer the role’s expected seniority and compare it to the resume.
+   - Determine the expected level from the JD (e.g., Mid, Senior, Staff, Manager, Director).
+   - Determine the level implied by the resume.
+   - Assess whether the resume shows sufficient ownership, leadership, ambiguity-handling, scale, and decision-making.
+   - Capture both supporting evidence and missing proof.
+
+8. **Responsibility Proof Review**
+   For the most important responsibilities in the JD:
+   - Identify which ones are strongly proven by the resume.
+   - Identify which are only weakly implied.
+   - Identify which are missing.
+   - For each weak/missing responsibility, explain what kind of bullet or achievement would strengthen it.
+
+9. **Keyword and Terminology Strategy**
+   Separate:
+   - exact_matches: words or phrases clearly present in both JD and resume
+   - adjacent_matches: related concepts that align semantically but use different wording
+   - high_value_missing: important JD terminology absent from the resume
+
+10. **Recruiter Signal Review**
+   Assess the resume for recruiter-level signals in five areas:
+   - leadership
+   - ownership
+   - business_impact
+   - collaboration
+   - ats_readability
+
+11. **Experience and Impact Review**
+   Evaluate whether the resume demonstrates the kind of experience and execution depth the role requires.
+   - Compare expected experience profile vs resume profile
+   - Call out missing experience signals
+   - Identify strong quantified impact examples
+   - Identify weak spots where outcomes, scale, or ownership are not clear
+
+12. **Hiring Readiness**
+   Provide a concise hiring outlook:
+   - recruiter_screen: likely / borderline / unlikely
+   - hiring_manager_review: likely / borderline / unlikely
+   - rationale: one short evidence-based explanation
+
+13. **Responsibility Matrix**
+   Build a compact structured matrix for the most important responsibilities:
+   - area
+   - jd_expectation
+   - resume_evidence
+   - confidence
+   - gap
+
+14. **Interview Risks**
+   Identify the biggest risks likely to come up in recruiter or hiring manager review.
+
+15. **Rewrite Priorities**
+   Provide 3-5 targeted rewrite priorities with priority level and expected benefit.
+
+16. **Current Problems**
    List tangible resume issues lowering the ATS score or recruiter impression (format, keyword gaps, clarity, etc.).
 
-8. **Improvement Plan**
+17. **Improvement Plan**
    Provide clear, prioritized actions:
    - Add missing keywords or skills.
    - Adjust bullet points to show measurable outcomes (use XYZ formula).
    - Reorder or rephrase sections for clarity.
    - Align summary and headline with JD language.
 
-9. **Predicted Impact**
+18. **Predicted Impact**
    Estimate how much (in percentage points) each improvement could raise the match score if implemented.
 
 OUTPUT FORMAT
@@ -221,13 +412,93 @@ Return a single JSON object (no markdown, no commentary before or after):
     "education_and_certs": ["string", "..."],
     "soft_skills": ["string", "..."],
     "industry_focus": "string",
-    "experience_required": "string"
+    "experience_required": "string",
+    "seniority_level": "string",
+    "reporting_scope": "string"
   },
   "resume_fit": {
     "found": ["string", "..."],
     "partial": ["string", "..."],
     "missing": ["string", "..."]
   },
+  "seniority_analysis": {
+    "expected_level": "string",
+    "resume_level": "string",
+    "alignment": "strong",
+    "rationale": "string",
+    "evidence": ["string", "..."],
+    "gaps": ["string", "..."]
+  },
+  "responsibility_evidence": {
+    "summary": "string",
+    "proven": [
+      {
+        "responsibility": "string",
+        "evidence": ["string", "..."],
+        "strength": "strong"
+      }
+    ],
+    "weak_or_missing": [
+      {
+        "responsibility": "string",
+        "gap_reason": "string",
+        "improvement_hint": "string"
+      }
+    ]
+  },
+  "experience_alignment": {
+    "required_profile": "string",
+    "resume_profile": "string",
+    "alignment": "partial",
+    "rationale": "string",
+    "missing_experience_signals": ["string", "..."]
+  },
+  "impact_evidence": {
+    "summary": "string",
+    "strong_examples": ["string", "..."],
+    "weak_spots": ["string", "..."]
+  },
+  "keyword_alignment": {
+    "exact_matches": ["string", "..."],
+    "adjacent_matches": ["string", "..."],
+    "high_value_missing": ["string", "..."]
+  },
+  "recruiter_signals": {
+    "leadership": "string",
+    "ownership": "string",
+    "business_impact": "string",
+    "collaboration": "string",
+    "ats_readability": "string"
+  },
+  "hiring_readiness": {
+    "recruiter_screen": "likely",
+    "hiring_manager_review": "borderline",
+    "rationale": "string"
+  },
+  "responsibility_matrix": [
+    {
+      "area": "string",
+      "jd_expectation": "string",
+      "resume_evidence": "string",
+      "confidence": "medium",
+      "gap": "string"
+    }
+  ],
+  "interview_risks": [
+    {
+      "risk": "string",
+      "why_it_matters": "string",
+      "mitigation": "string"
+    }
+  ],
+  "rewrite_priorities": [
+    {
+      "section": "string",
+      "priority": "high",
+      "action": "string",
+      "expected_benefit": "string"
+    }
+  ],
   "current_problems": [
     "string issue 1 (e.g., inconsistent job titles)",
     "string issue 2 (e.g., lacks measurable outcomes)"
@@ -288,7 +559,11 @@ const analyzeResumeFlow = ai.defineFlow(
       jobDescChars: input.jobDescription.length
     });
     
-    const { output } = await analysisPrompt(input);
+    const { output } = await executeWithProviderFallback(
+      (nextInput, model) => analysisPrompt(nextInput, { model }),
+      input,
+      'analyzeResume'
+    );
     
     if (!output) {
       throw new Error('Analysis failed: No output received from AI model.');
@@ -334,11 +609,74 @@ const chatPrompt = ai.definePrompt({
 
   **Role Expectations Summary:**
   {{atsAnalysis.role_expectations.summary}}
+  - **Expected Seniority**: {{atsAnalysis.role_expectations.seniority_level}}
+  - **Expected Scope**: {{atsAnalysis.role_expectations.reporting_scope}}
 
   **Resume Fit Analysis:**
   - **Found Requirements**: {{#each atsAnalysis.resume_fit.found}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
   - **Partial Requirements**: {{#each atsAnalysis.resume_fit.partial}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
   - **Missing Requirements**: {{#each atsAnalysis.resume_fit.missing}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+
+  {{#if atsAnalysis.seniority_analysis}}
+  **Seniority Analysis:**
+  - **Expected Level**: {{atsAnalysis.seniority_analysis.expected_level}}
+  - **Resume Level**: {{atsAnalysis.seniority_analysis.resume_level}}
+  - **Alignment**: {{atsAnalysis.seniority_analysis.alignment}}
+  - **Rationale**: {{atsAnalysis.seniority_analysis.rationale}}
+  {{/if}}
+
+  {{#if atsAnalysis.responsibility_evidence}}
+  **Responsibility Evidence Summary:**
+  {{atsAnalysis.responsibility_evidence.summary}}
+  {{/if}}
+
+  {{#if atsAnalysis.experience_alignment}}
+  **Experience Alignment:**
+  - **Required Profile**: {{atsAnalysis.experience_alignment.required_profile}}
+  - **Resume Profile**: {{atsAnalysis.experience_alignment.resume_profile}}
+  - **Alignment**: {{atsAnalysis.experience_alignment.alignment}}
+  - **Rationale**: {{atsAnalysis.experience_alignment.rationale}}
+  {{/if}}
+
+  {{#if atsAnalysis.impact_evidence}}
+  **Impact Evidence Summary:**
+  {{atsAnalysis.impact_evidence.summary}}
+  {{/if}}
+
+  {{#if atsAnalysis.hiring_readiness}}
+  **Hiring Readiness:**
+  - **Recruiter Screen**: {{atsAnalysis.hiring_readiness.recruiter_screen}}
+  - **Hiring Manager Review**: {{atsAnalysis.hiring_readiness.hiring_manager_review}}
+  - **Rationale**: {{atsAnalysis.hiring_readiness.rationale}}
+  {{/if}}
+
+  {{#if atsAnalysis.responsibility_matrix}}
+  **Responsibility Matrix:**
+  {{#each atsAnalysis.responsibility_matrix}}
+  - **Area**: {{area}} | **Confidence**: {{confidence}} | **Gap**: {{gap}}
+  {{/each}}
+  {{/if}}
+
+  {{#if atsAnalysis.interview_risks}}
+  **Interview Risks:**
+  {{#each atsAnalysis.interview_risks}}
+  - {{risk}}: {{mitigation}}
+  {{/each}}
+  {{/if}}
+
+  {{#if atsAnalysis.rewrite_priorities}}
+  **Rewrite Priorities:**
+  {{#each atsAnalysis.rewrite_priorities}}
+  - {{priority}} priority in {{section}}: {{action}}
+  {{/each}}
+  {{/if}}
+
+  {{#if atsAnalysis.keyword_alignment}}
+  **Keyword Strategy:**
+  - **Exact Matches**: {{#each atsAnalysis.keyword_alignment.exact_matches}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+  - **Adjacent Matches**: {{#each atsAnalysis.keyword_alignment.adjacent_matches}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+  - **High Value Missing**: {{#each atsAnalysis.keyword_alignment.high_value_missing}}"{{this}}"{{#unless @last}}, {{/unless}}{{/each}}
+  {{/if}}
 
   **Current Problems:**
   {{#each atsAnalysis.current_problems}}
@@ -388,7 +726,11 @@ const chatWithResumeAssistantFlow = ai.defineFlow(
         outputSchema: ChatOutputSchema,
     },
     async (input) => {
-        const { output } = await chatPrompt(input);
+        const { output } = await executeWithProviderFallback(
+            (nextInput, model) => chatPrompt(nextInput, { model }),
+            input,
+            'chatWithResumeAssistant'
+        );
         return output!;
     }
 );
@@ -480,11 +822,85 @@ const generateCoverLetterFlow = ai.defineFlow(
     outputSchema: CoverLetterOutputSchema,
   },
   async (input) => {
-    const { output } = await coverLetterPrompt(input);
+    const { output } = await executeWithProviderFallback(
+      (nextInput, model) => coverLetterPrompt(nextInput, { model }),
+      input,
+      'generateCoverLetter'
+    );
     return output!;
   }
 );
 
 export async function generateCoverLetter(input: CoverLetterInput): Promise<CoverLetterOutput> {
   return generateCoverLetterFlow(input);
+}
+
+const coverLetterTemplatePrompt = ai.definePrompt({
+  name: 'coverLetterTemplatePrompt',
+  input: { schema: CoverLetterTemplateInputSchema },
+  output: { schema: CoverLetterTemplateOutputSchema },
+  prompt: `You are an expert career coach and hiring communications specialist.
+
+Your task is to fill a cover letter template that contains replaceable placeholders in the form {{ variable }}.
+
+You must:
+1. Detect the intended meaning of each variable from the template context.
+2. Replace variables with text tailored to the company, role, job description, and candidate resume.
+3. Preserve the overall structure and writing style of the uploaded template.
+4. Keep replacements natural and specific to the employer's goals, technologies, and language.
+5. Never leave placeholders unresolved in the final rendered cover letter unless the value is genuinely impossible to infer.
+
+Inputs:
+
+Template Text:
+{{{templateText}}}
+
+Detected Template Variables:
+{{#each templateVariables}}
+- {{{this}}}
+{{/each}}
+
+Job Description:
+{{{jobDescription}}}
+
+Resume Text:
+{{{resumeText}}}
+
+Company Name:
+{{{companyName}}}
+
+Job Title:
+{{{jobTitle}}}
+
+Instructions:
+- Use the job description as the primary source for company goals, technologies, responsibilities, and tone.
+- Use the resume to ground the candidate's experience and avoid inventing facts.
+- If a variable is generic, infer the best replacement from the surrounding sentence.
+- Replacements can be phrases or short paragraphs when appropriate.
+- Keep the final letter polished and submission-ready.
+
+Return JSON with:
+- renderedCoverLetter: the fully rendered letter
+- replacements: one entry per detected variable
+- notes: short notes about assumptions, especially if a variable name was ambiguous`
+});
+
+const fillCoverLetterTemplateFlow = ai.defineFlow(
+  {
+    name: 'fillCoverLetterTemplateFlow',
+    inputSchema: CoverLetterTemplateInputSchema,
+    outputSchema: CoverLetterTemplateOutputSchema,
+  },
+  async (input) => {
+    const { output } = await executeWithProviderFallback(
+      (nextInput, model) => coverLetterTemplatePrompt(nextInput, { model }),
+      input,
+      'fillCoverLetterTemplate'
+    );
+    return output!;
+  }
+);
+
+export async function fillCoverLetterTemplate(input: CoverLetterTemplateInput): Promise<CoverLetterTemplateOutput> {
+  return fillCoverLetterTemplateFlow(input);
 }

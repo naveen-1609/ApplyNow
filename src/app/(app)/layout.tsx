@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { Sidebar, SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { FullScreenInstantLoader } from '@/components/ui/instant-loader';
 
@@ -25,7 +25,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset>
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        <div className="app-shell min-h-screen">
+          <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

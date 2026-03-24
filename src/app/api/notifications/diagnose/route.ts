@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         userDoc = emailQuery.docs[0];
         targetUserId = userDoc.id;
         const userData = userDoc.data();
-        userEmail = userData.email || email;
+        userEmail = userData?.email || email;
       }
     }
 
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
       userDoc = await adminDb.collection('users').doc(targetUserId).get();
       if (userDoc.exists) {
         const userData = userDoc.data();
-        userEmail = userData.email || email;
+        userEmail = userData?.email || email;
       }
     }
 
@@ -310,4 +310,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(diagnostics, { status: 500 });
   }
 }
-

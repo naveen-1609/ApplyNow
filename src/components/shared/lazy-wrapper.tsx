@@ -19,16 +19,25 @@ export function createLazyComponent<T extends ComponentType<any>>(
 
 // Pre-configured lazy components for common use cases
 export const LazyChart = createLazyComponent(
-  () => import('@/components/dashboard/applications-over-time-chart'),
+  () =>
+    import('@/components/dashboard/applications-over-time-chart').then((module) => ({
+      default: module.ApplicationsOverTimeChart,
+    })),
   <Skeleton className="h-64 w-full" />
 );
 
 export const LazyStatusChart = createLazyComponent(
-  () => import('@/components/dashboard/status-breakdown-chart'),
+  () =>
+    import('@/components/dashboard/status-breakdown-chart').then((module) => ({
+      default: module.StatusBreakdownChart,
+    })),
   <Skeleton className="h-64 w-full" />
 );
 
 export const LazyAtsChecker = createLazyComponent(
-  () => import('@/components/ats-checker/ats-checker-tool'),
+  () =>
+    import('@/components/ats-checker/ats-checker-tool').then((module) => ({
+      default: module.AtsCheckerTool,
+    })),
   <Skeleton className="h-96 w-full" />
 );

@@ -292,12 +292,12 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
           const isEditing = editing === link.key;
           
           return (
-            <div key={link.key} className="flex items-center space-x-3">
-              <Globe className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium w-20">{link.label}</span>
+            <div key={link.key} className="flex items-center gap-3 min-w-0">
+              <Globe className="w-4 h-4 shrink-0 text-muted-foreground" />
+              <span className="w-20 shrink-0 text-sm font-medium">{link.label}</span>
               
               {isEditing ? (
-                <div className="flex items-center space-x-2 flex-1">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   <Input
                     value={editData.url}
                     onChange={(e) => setEditData({ ...editData, url: e.target.value })}
@@ -313,11 +313,11 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center space-x-2 flex-1">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   {value ? (
                     <>
                       <span 
-                        className="text-blue-600 hover:text-blue-800 cursor-pointer flex-1 truncate"
+                        className="min-w-0 flex-1 truncate text-blue-600 hover:text-blue-800 cursor-pointer"
                         onClick={() => openLink(value)}
                         title={value}
                       >
@@ -326,6 +326,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => copyToClipboard(value)}
                         title="Copy link"
                       >
@@ -334,6 +335,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => openLink(value)}
                         title="Open link"
                       >
@@ -346,6 +348,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                   <Button
                     size="sm"
                     variant="ghost"
+                    className="shrink-0"
                     onClick={() => startEditing(link.key, value)}
                     title={`Edit ${link.label}`}
                   >
@@ -365,12 +368,12 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
               const isEditing = editing === `custom-${index}`;
               
               return (
-                <div key={index} className="flex items-center space-x-3">
-                  <LinkIcon className="w-4 h-4" />
-                  <span className="text-sm font-medium w-20 truncate">{link.label}</span>
+                <div key={index} className="flex items-center gap-3 min-w-0">
+                  <LinkIcon className="w-4 h-4 shrink-0" />
+                  <span className="w-20 shrink-0 truncate text-sm font-medium">{link.label}</span>
                   
                   {isEditing ? (
-                    <div className="flex items-center space-x-2 flex-1">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <Input
                         value={editData.label}
                         onChange={(e) => setEditData({ ...editData, label: e.target.value })}
@@ -392,9 +395,9 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center space-x-2 flex-1">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       <span 
-                        className="text-blue-600 hover:text-blue-800 cursor-pointer flex-1 truncate"
+                        className="min-w-0 flex-1 truncate text-blue-600 hover:text-blue-800 cursor-pointer"
                         onClick={() => openLink(link.url)}
                         title={link.url}
                       >
@@ -403,6 +406,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => copyToClipboard(link.url)}
                         title="Copy link"
                       >
@@ -411,6 +415,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => openLink(link.url)}
                         title="Open link"
                       >
@@ -419,6 +424,7 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0"
                         onClick={() => startEditingCustom(index, link)}
                         title="Edit link"
                       >
@@ -427,9 +433,9 @@ export function LinksPanel({ onSave }: LinksPanelProps) {
                       <Button
                         size="sm"
                         variant="ghost"
+                        className="shrink-0 text-red-600 hover:text-red-800"
                         onClick={() => deleteCustomLink(index)}
                         title="Delete link"
-                        className="text-red-600 hover:text-red-800"
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>

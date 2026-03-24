@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Minus, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { updateUserSettings } from '@/lib/services/users';
+import { updateUserSettingsClient } from '@/lib/services/user-settings-client';
 
 type SetTargetCardProps = {
     currentTarget: number;
@@ -28,7 +28,7 @@ export function SetTargetCard({ currentTarget, onTargetSaved }: SetTargetCardPro
         if (!user) return;
         setIsSaving(true);
         try {
-            await updateUserSettings(user.uid, { target: { daily_target: dailyTarget } });
+            await updateUserSettingsClient(user.uid, { target: { daily_target: dailyTarget } });
             
             // Update local state immediately for better UX
             // The refetch will confirm the update from the server

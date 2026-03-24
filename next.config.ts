@@ -1,4 +1,5 @@
 import type {NextConfig} from 'next';
+import runtimeTuning from './src/config/runtime-tuning.json';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -33,14 +34,6 @@ const nextConfig: NextConfig = {
   // Performance optimizations
   experimental: {
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'recharts'],
-    turbo: {
-      rules: {
-        '*.svg': {
-          loaders: ['@svgr/webpack'],
-          as: '*.js',
-        },
-      },
-    },
   },
   turbopack: {
     rules: {
@@ -51,7 +44,35 @@ const nextConfig: NextConfig = {
     },
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: false,
+  },
+  httpAgentOptions: {
+    keepAlive: runtimeTuning.performance.network.keepAlive,
+  },
+  async headers() {
+    const staticMaxAge = runtimeTuning.performance.network.cdn.staticAssetMaxAgeSeconds;
+    const publicMaxAge = runtimeTuning.performance.network.cdn.publicAssetMaxAgeSeconds;
+
+    return [
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: `public, max-age=${staticMaxAge}, immutable`,
+          },
+        ],
+      },
+      {
+        source: '/:path*.(svg|jpg|jpeg|png|webp|gif|ico|woff|woff2)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: `public, max-age=${publicMaxAge}, stale-while-revalidate=${publicMaxAge}`,
+          },
+        ],
+      },
+    ];
   },
   // Enable static optimization
   // output: 'standalone', // Commented out for Vercel deployment

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/use-optimized-auth';
 import { useGlobalData } from '@/hooks/use-global-data';
-import { getUserSettings, updateUserSettings } from '@/lib/services/users';
+import { getUserSettingsClient, updateUserSettingsClient } from '@/lib/services/user-settings-client';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -83,7 +83,7 @@ export default function TestFeaturesPage() {
 
       // Test 3: Get User Settings (includes schedule)
       try {
-        const settings = await getUserSettings(user.uid);
+        const settings = await getUserSettingsClient(user.uid);
         testResults.push({
           name: 'User Settings',
           success: true,
@@ -109,7 +109,7 @@ export default function TestFeaturesPage() {
           summary_email_template: 'Test template'
         };
 
-        await updateUserSettings(user.uid, { schedule: testSchedule });
+        await updateUserSettingsClient(user.uid, { schedule: testSchedule });
         testResults.push({
           name: 'Update Schedule',
           success: true,

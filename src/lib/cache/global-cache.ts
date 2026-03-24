@@ -3,6 +3,9 @@
  * Centralized caching system to reduce API calls and improve performance
  */
 
+import { getCacheTtl, runtimeTuning } from '@/lib/config/runtime-tuning';
+import { logger } from '@/lib/utils/logger';
+
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
@@ -14,14 +17,13 @@ class GlobalCache {
   private cache = new Map<string, CacheEntry<any>>();
   private pendingRequests = new Map<string, Promise<any>>();
   
-  // Cache TTL configurations
-  private readonly TTL = {
-    APPLICATIONS: 5 * 60 * 1000, // 5 minutes
-    RESUMES: 10 * 60 * 1000, // 10 minutes
-    USER_SETTINGS: 15 * 60 * 1000, // 15 minutes
-    TARGETS: 5 * 60 * 1000, // 5 minutes
-    SCHEDULES: 15 * 60 * 1000, // 15 minutes
-    DEFAULT: 2 * 60 * 1000, // 2 minutes
+  readonly TTL = {
+    APPLICATIONS: getCacheTtl('applicationsTtlMs'),
+    RESUMES: getCacheTtl('resumesTtlMs'),
+    USER_SETTINGS: getCacheTtl('userSettingsTtlMs'),
+    TARGETS: getCacheTtl('todayTargetTtlMs'),
+    SCHEDULES: getCacheTtl('schedulesTtlMs'),
+    DEFAULT: getCacheTtl('defaultTtlMs'),
   };
 
   /**
@@ -40,11 +42,11 @@ class GlobalCache {
     // Check cache
     const cached = this.cache.get(key);
     if (cached && Date.now() - cached.timestamp < cached.ttl) {
-      console.log(`🎯 Cache HIT: ${key}`);
+      logger.debug(`Cache hit for ${key}`);
       return cached.data;
     }
 
-    console.log(`🔄 Cache MISS: ${key}, fetching...`);
+    logger.debug(`Cache miss for ${key}`);
     
     // Create pending request
     const request = fetchFn().then(data => {
@@ -59,7 +61,7 @@ class GlobalCache {
       // Remove from pending
       this.pendingRequests.delete(key);
       
-      console.log(`✅ Cached: ${key}`);
+      logger.debug(`Cached ${key}`);
       return data;
     }).catch(error => {
       // Remove from pending on error
@@ -81,7 +83,7 @@ class GlobalCache {
       ttl,
       key
     });
-    console.log(`💾 Manually cached: ${key}`);
+    logger.debug(`Manually cached ${key}`);
   }
 
   /**
@@ -89,7 +91,7 @@ class GlobalCache {
    */
   invalidate(key: string): void {
     this.cache.delete(key);
-    console.log(`🗑️ Invalidated: ${key}`);
+    logger.debug(`Invalidated ${key}`);
   }
 
   /**
@@ -100,7 +102,7 @@ class GlobalCache {
     for (const key of this.cache.keys()) {
       if (regex.test(key)) {
         this.cache.delete(key);
-        console.log(`🗑️ Invalidated pattern: ${key}`);
+        logger.debug(`Invalidated pattern match ${key}`);
       }
     }
   }
@@ -118,7 +120,7 @@ class GlobalCache {
   clear(): void {
     this.cache.clear();
     this.pendingRequests.clear();
-    console.log('🧹 Cache cleared');
+    logger.info('Cleared global cache');
   }
 
   /**
@@ -161,7 +163,7 @@ class GlobalCache {
     }
 
     if (cleaned > 0) {
-      console.log(`🧹 Cleaned up ${cleaned} expired cache entries`);
+      logger.debug(`Cleaned ${cleaned} expired cache entries`);
     }
   }
 
@@ -182,7 +184,7 @@ export const globalCache = new GlobalCache();
 // Auto-cleanup every 5 minutes
 setInterval(() => {
   globalCache.cleanup();
-}, 5 * 60 * 1000);
+}, runtimeTuning.performance.caching.cleanupIntervalMs);
 
 // Export cache instance and TTL constants
 export { GlobalCache };

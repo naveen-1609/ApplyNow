@@ -146,6 +146,7 @@ export class OptimizedDataService {
       job_link: data.job_link,
       job_description: data.job_description,
       resume_id: data.resume_id,
+      cover_letter_id: data.cover_letter_id || null,
       status: data.status,
       applied_date: data.applied_date?.toDate() || new Date(),
       last_updated: data.last_updated?.toDate() || new Date(),

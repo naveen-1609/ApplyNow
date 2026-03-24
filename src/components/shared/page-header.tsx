@@ -17,7 +17,7 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'flex flex-col gap-4 md:flex-row md:items-center md:justify-between',
+        'flex flex-col gap-4 rounded-3xl border border-border/70 bg-card/70 px-5 py-5 shadow-sm backdrop-blur md:flex-row md:items-center md:justify-between md:px-6',
         className
       )}
     >
@@ -26,7 +26,7 @@ export function PageHeader({
           {title}
         </h1>
         {description && (
-          <p className="text-muted-foreground">{description}</p>
+          <p className="max-w-2xl text-muted-foreground">{description}</p>
         )}
       </div>
       {children && <div className="flex shrink-0 gap-2">{children}</div>}

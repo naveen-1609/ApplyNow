@@ -23,15 +23,17 @@ const fromFirestore = (doc: any): Partial<User> => {
 }
 
 // Get user settings, including schedule and target
-export const getUserSettings = async (userId: string): Promise<{ schedule?: any, target?: any }> => {
+export const getUserSettings = async (userId: string): Promise<{ email?: string | null, schedule?: any, target?: any }> => {
     const userDocRef = getUserDoc(userId);
-    const docSnap = await userDocRef.get();
-    
-    // Get schedule and target from separate collections
-    const schedule = await getSchedule(userId);
-    const target = await getTodayTarget(userId);
+    const [docSnap, schedule, target] = await Promise.all([
+        userDocRef.get(),
+        getSchedule(userId),
+        getTodayTarget(userId),
+    ]);
+    const userData = docSnap.exists ? docSnap.data() : null;
     
     return { 
+        email: userData?.email || null,
         schedule: schedule || undefined,
         target: target || { daily_target: 3 }
     };
@@ -41,8 +43,9 @@ export const getUserSettings = async (userId: string): Promise<{ schedule?: any,
 export const updateUserSettings = async (userId: string, settings: { schedule?: any, target?: any }): Promise<void> => {
     const userDocRef = getUserDoc(userId);
     
-    // Update user document with basic info only
-    const userData: any = {};
+    const userData: Record<string, unknown> = {
+        updated_at: new Date(),
+    };
     if (settings.schedule) {
         // Update schedule in schedules collection
         const { updateSchedule, addSchedule } = await import('./schedules-server');

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, Timestamp, getAuth } from '@/lib/firebase-admin';
+import { adminDb, Timestamp, getAdminAuth } from '@/lib/firebase-admin';
 
 async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   try {
     const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split('Bearer ')[1];
-      const decodedToken = await getAuth().verifyIdToken(token);
+      const auth = await getAdminAuth();
+      const decodedToken = await auth.verifyIdToken(token);
       return decodedToken.uid;
     }
     // Fallback: Allow userId from query/body for backward compatibility
@@ -43,23 +44,26 @@ export async function GET(request: NextRequest) {
 
     if (today) {
       // Get today's target
-      const todayDate = new Date();
-      todayDate.setHours(0, 0, 0, 0);
+      const todayDate = startOfDay(new Date());
+      const nextDay = startOfDay(new Date(todayDate.getTime() + 24 * 60 * 60 * 1000));
       
       const snapshot = await targetsCol
         .where('user_id', '==', userId)
-        .where('current_date', '==', Timestamp.fromDate(todayDate))
         .get();
-      
-      if (snapshot.empty) {
+
+      const todayDoc = snapshot.docs.find((doc) => {
+        const currentDate = doc.data().current_date?.toDate?.();
+        return currentDate && currentDate >= todayDate && currentDate < nextDay;
+      });
+
+      if (!todayDoc) {
         return NextResponse.json({ target: null });
       }
       
-      const doc = snapshot.docs[0];
-      const data = doc.data();
+      const data = todayDoc.data();
       
       const target = {
-        target_id: doc.id,
+        target_id: todayDoc.id,
         user_id: data.user_id,
         daily_target: data.daily_target,
         current_date: data.current_date.toDate(),
@@ -116,7 +120,7 @@ export async function POST(request: NextRequest) {
     const docData = {
       user_id: userId,
       daily_target,
-      current_date: Timestamp.fromDate(new Date(current_date)),
+      current_date: Timestamp.fromDate(startOfDay(new Date(current_date))),
       applications_done,
       status_color,
     };
@@ -163,7 +167,7 @@ export async function PUT(request: NextRequest) {
     };
 
     if (updateData.current_date) {
-      processedUpdateData.current_date = Timestamp.fromDate(new Date(updateData.current_date));
+      processedUpdateData.current_date = Timestamp.fromDate(startOfDay(new Date(updateData.current_date)));
     }
 
     await targetDocRef.update(processedUpdateData);
@@ -173,6 +177,12 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating target:', error);
     return NextResponse.json({ error: 'Failed to update target' }, { status: 500 });
   }
+}
+
+function startOfDay(date: Date) {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
 }
 
 export async function DELETE(request: NextRequest) {

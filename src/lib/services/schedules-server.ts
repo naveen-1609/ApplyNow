@@ -1,6 +1,7 @@
 'use server';
 
 import { adminDb, Timestamp } from '@/lib/firebase-admin';
+import { normalizeTimeFormat } from '@/lib/utils/time-format';
 
 export interface Schedule {
   schedule_id: string;
@@ -47,11 +48,13 @@ export const addSchedule = async (userId: string, data: { reminder_time: string;
     
     const docData = {
       user_id: userId,
-      reminder_time: data.reminder_time,
-      summary_time: data.summary_time,
+      reminder_time: normalizeTimeFormat(data.reminder_time),
+      summary_time: normalizeTimeFormat(data.summary_time),
       email_enabled: data.email_enabled,
       reminder_email_template: data.reminder_email_template,
       summary_email_template: data.summary_email_template,
+      created_at: Timestamp.now(),
+      updated_at: Timestamp.now(),
     };
     
     const docRef = await schedulesCol.add(docData);
@@ -94,65 +97,3 @@ export const updateSchedule = async (userId: string, scheduleId: string, data: P
     throw error;
   }
 };
-
-// Helper function to normalize time format to HH:mm
-function normalizeTimeFormat(time: string): string {
-  if (!time) {
-    console.warn('⚠️ Empty time value provided');
-    return time;
-  }
-  
-  console.log(`🕐 Normalizing time format: "${time}"`);
-  
-  // HTML time input returns "HH:mm" format, but might also return "H:mm" (single digit hour)
-  // If already in HH:mm format, return as is
-  if (/^\d{2}:\d{2}$/.test(time)) {
-    console.log(`✅ Time already in HH:mm format: ${time}`);
-    return time;
-  }
-  
-  // Handle "H:mm" format (single digit hour) - HTML time input sometimes returns this
-  if (/^\d{1}:\d{2}$/.test(time)) {
-    const normalized = `0${time}`;
-    console.log(`✅ Normalized single-digit hour: ${time} → ${normalized}`);
-    return normalized;
-  }
-  
-  // Try to parse various formats
-  // Handle "8:51 PM" or "8:51PM" format
-  const pmMatch = time.match(/(\d{1,2}):(\d{2})\s*PM/i);
-  const amMatch = time.match(/(\d{1,2}):(\d{2})\s*AM/i);
-  
-  if (pmMatch) {
-    let hour = parseInt(pmMatch[1]);
-    const minute = pmMatch[2];
-    if (hour !== 12) hour += 12; // Convert PM to 24-hour (except 12 PM = 12:00)
-    const normalized = `${hour.toString().padStart(2, '0')}:${minute}`;
-    console.log(`✅ Converted PM time: ${time} → ${normalized}`);
-    return normalized;
-  }
-  
-  if (amMatch) {
-    let hour = parseInt(amMatch[1]);
-    const minute = amMatch[2];
-    if (hour === 12) hour = 0; // 12 AM = 00:00
-    const normalized = `${hour.toString().padStart(2, '0')}:${minute}`;
-    console.log(`✅ Converted AM time: ${time} → ${normalized}`);
-    return normalized;
-  }
-  
-  // If no match, try to extract HH:mm from the string
-  const timeMatch = time.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hour = parseInt(timeMatch[1]).toString().padStart(2, '0');
-    const minute = timeMatch[2];
-    const normalized = `${hour}:${minute}`;
-    console.log(`✅ Extracted time: ${time} → ${normalized}`);
-    return normalized;
-  }
-  
-  // Return as is if we can't parse it
-  console.warn(`⚠️ Could not normalize time format: ${time}, returning as-is`);
-  return time;
-}
-

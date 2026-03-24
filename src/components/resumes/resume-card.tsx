@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
-import { MoreVertical, FileText, Pencil, Trash2 } from 'lucide-react';
+import { MoreVertical, FileText, Pencil, Trash2, TriangleAlert, Sparkles } from 'lucide-react';
 import type { Resume } from '@/lib/types';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 type ResumeCardProps = {
@@ -53,6 +53,10 @@ export function ResumeCard({ resume, onDelete, onSaveText }: ResumeCardProps) {
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [editableText, setEditableText] = useState(resume.editable_text);
+
+    useEffect(() => {
+        setEditableText(resume.editable_text);
+    }, [resume.editable_text]);
     
     const handleSaveChanges = () => {
         onSaveText(resume.resume_id, editableText);
@@ -68,9 +72,11 @@ export function ResumeCard({ resume, onDelete, onSaveText }: ResumeCardProps) {
 
   return (
     <>
-    <Card className="flex flex-col">
+    <Card className="flex flex-col overflow-hidden border-border/70 bg-card/85 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-xl">
       <CardHeader className="flex flex-row items-start gap-4">
-        <FileText className="mt-1 h-8 w-8 text-primary" />
+        <div className="mt-1 rounded-2xl bg-primary/12 p-3 text-primary">
+          <FileText className="h-6 w-6" />
+        </div>
         <div className="flex-1">
           <CardTitle className="text-base font-semibold leading-tight">{resume.resume_name}</CardTitle>
           <CardDescription>
@@ -96,26 +102,40 @@ export function ResumeCard({ resume, onDelete, onSaveText }: ResumeCardProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </CardHeader>
-      <CardContent className="flex-1 space-y-2">
+      <CardContent className="flex-1 space-y-3">
+        {resume.extraction_warning ? (
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
+            <div className="mb-1 flex items-center gap-2 text-sm font-medium text-yellow-200">
+              <TriangleAlert className="h-4 w-4" />
+              Extraction review recommended
+            </div>
+            <p className="text-xs text-yellow-100/80">{resume.extraction_warning}</p>
+          </div>
+        ) : null}
         {!resume.editable_text || resume.editable_text.trim().length === 0 ? (
-          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-              ⚠️ No Text Extracted
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
+            <p className="mb-1 text-sm font-medium text-yellow-200">
+              No text extracted
             </p>
-            <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              This resume has no extractable text. Click "Edit Text" to manually add the resume content, or re-upload as a PDF file.
+            <p className="text-xs text-yellow-100/80">
+              Add the resume content manually or re-upload a PDF so AI analysis has something reliable to work with.
             </p>
           </div>
         ) : resume.editable_text.trim().length < 100 ? (
-          <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200 font-medium mb-1">
-              ⚠️ Limited Text Extracted
+          <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3">
+            <p className="mb-1 text-sm font-medium text-yellow-200">
+              Limited text extracted
             </p>
-            <p className="text-xs text-yellow-700 dark:text-yellow-300">
-              Only {resume.editable_text.trim().length} characters were extracted. Please review and edit the text manually.
+            <p className="text-xs text-yellow-100/80">
+              Only {resume.editable_text.trim().length} characters were captured. It&apos;s worth opening the editor and cleaning this up.
             </p>
           </div>
-        ) : null}
+        ) : (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+            <Sparkles className="h-4 w-4" />
+            Resume text is ready for matching and ATS analysis
+          </div>
+        )}
         <p className="text-sm text-muted-foreground line-clamp-3">
           {resume.editable_text || 'No text available. Click "Edit Text" to add resume content.'}
         </p>

@@ -10,9 +10,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { getUserSettings, updateUserSettings } from '@/lib/services/users';
+import { getUserSettingsClient, updateUserSettingsClient } from '@/lib/services/user-settings-client';
 import type { Schedule } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
+import { logger } from '@/lib/utils/logger';
 
 const defaultSchedule: Schedule = {
   schedule_id: '',
@@ -60,7 +61,7 @@ export function NotificationsForm() {
             if (!user) return;
             setLoading(true);
             try {
-                const settings = await getUserSettings(user.uid);
+                const settings = await getUserSettingsClient(user.uid);
                 if (settings.schedule) {
                     setSchedule(settings.schedule);
                 } else {
@@ -68,7 +69,7 @@ export function NotificationsForm() {
                     setSchedule({ ...defaultSchedule, user_id: user.uid });
                 }
             } catch (error) {
-                console.error("Failed to fetch settings", error);
+                logger.warn('Failed to fetch settings', error);
                 toast({
                     variant: 'destructive',
                     title: 'Error',
@@ -85,13 +86,13 @@ export function NotificationsForm() {
         if (!user) return;
         setSaving(true);
         try {
-            await updateUserSettings(user.uid, { schedule });
+            await updateUserSettingsClient(user.uid, { schedule });
             toast({
                 title: 'Settings Saved',
                 description: 'Your notification preferences have been updated.',
             });
         } catch (error) {
-            console.error("Failed to save settings", error);
+            logger.warn('Failed to save settings', error);
             toast({
                 variant: 'destructive',
                 title: 'Error',

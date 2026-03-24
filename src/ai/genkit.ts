@@ -1,18 +1,33 @@
 import {genkit} from 'genkit';
+import openAICompatible from '@genkit-ai/compat-oai';
 import {openAI} from '@genkit-ai/compat-oai/openai';
 
-// Initialize OpenAI plugin with API key from environment
-// The API key will be read from OPENAI_API_KEY environment variable if not provided
+export const ANTHROPIC_PRIMARY_MODEL = 'anthropic/claude-sonnet-4-6';
+export const OPENAI_FALLBACK_MODEL = 'openai/gpt-4o';
+
+export function readServerEnv(name: string): string | undefined {
+  const value = process.env[name];
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+const anthropicApiKey = readServerEnv('ANTHROPIC_ADMIN_API_KEY');
+const openAiApiKey = readServerEnv('OPENAI_API_KEY');
+
 export const ai = genkit({
   plugins: [
+    openAICompatible({
+      name: 'anthropic',
+      apiKey: anthropicApiKey,
+      baseURL: process.env.ANTHROPIC_OPENAI_BASE_URL || 'https://api.anthropic.com/v1/',
+    }),
     openAI({
-      apiKey: process.env.OPENAI_API_KEY, // Optional: defaults to OPENAI_API_KEY env var
+      apiKey: openAiApiKey,
     }),
   ],
-  model: 'openai/gpt-4o', // Fast and cost-effective model, good for structured outputs
-  // Alternative models you can use:
-  // 'openai/gpt-4o' - Most capable, best quality
-  // 'openai/gpt-4-turbo' - High quality, good balance
-  // 'openai/gpt-4o-mini' - Fast and efficient (current default)
-  // 'openai/gpt-3.5-turbo' - Fastest and cheapest
+  model: anthropicApiKey ? ANTHROPIC_PRIMARY_MODEL : OPENAI_FALLBACK_MODEL,
 });

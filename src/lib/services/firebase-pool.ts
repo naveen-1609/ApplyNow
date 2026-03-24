@@ -16,17 +16,19 @@ import {
   type QueryDocumentSnapshot,
   type Query,
 } from 'firebase/firestore';
+import { runtimeTuning } from '@/lib/config/runtime-tuning';
+import { logger } from '@/lib/utils/logger';
 
 // Advanced caching with TTL and LRU eviction
 class FirebasePool {
   private queryCache = new Map<string, { data: any; timestamp: number; hits: number }>();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_CACHE_SIZE = 100;
-  private readonly MAX_CACHE_AGE = 30 * 60 * 1000; // 30 minutes max age
+  private readonly CACHE_DURATION = runtimeTuning.performance.caching.firebasePool.defaultTtlMs;
+  private readonly MAX_CACHE_SIZE = runtimeTuning.performance.caching.firebasePool.maxCacheSize;
+  private readonly MAX_CACHE_AGE = runtimeTuning.performance.caching.firebasePool.maxCacheAgeMs;
 
   // Connection pooling simulation
   private activeConnections = 0;
-  private readonly MAX_CONNECTIONS = 10;
+  private readonly MAX_CONNECTIONS = runtimeTuning.performance.caching.firebasePool.maxConnections;
   private connectionQueue: Array<() => void> = [];
 
   // Execute query with connection pooling and caching
@@ -146,7 +148,7 @@ class FirebasePool {
       if (result.status === 'fulfilled') {
         results.push(result.value);
       } else {
-        console.error('Batch operation failed:', result.reason);
+        logger.error('Batch operation failed', result.reason);
       }
     });
 
@@ -197,7 +199,7 @@ export const firebasePool = new FirebasePool();
 if (typeof window !== 'undefined') {
   setInterval(() => {
     firebasePool.cleanup();
-  }, 10 * 60 * 1000);
+  }, runtimeTuning.performance.caching.firebasePoolCleanupIntervalMs);
 }
 
 // Optimized query functions

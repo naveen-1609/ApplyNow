@@ -7,17 +7,26 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-optimized-auth';
 import { getCachedUserData, invalidateUserCache } from '@/lib/services/cached-services';
 import { globalCache } from '@/lib/cache/global-cache';
-import type { JobApplication, Resume, User, Target, Schedule } from '@/lib/types';
+import type { JobApplication, Resume, Target, Schedule } from '@/lib/types';
+import { logger } from '@/lib/utils/logger';
 
 interface GlobalDataState {
   applications: JobApplication[];
   resumes: Resume[];
-  userSettings: User | null;
+  userSettings: Record<string, unknown> | null;
   todayTarget: Target | null;
   schedule: Schedule | null;
   loading: boolean;
   error: string | null;
   lastUpdated: number | null;
+}
+
+interface GlobalDataStats {
+  totalApplications: number;
+  totalInterviews: number;
+  totalOffers: number;
+  totalRejections: number;
+  pendingApplications: number;
 }
 
 interface GlobalDataActions {
@@ -31,7 +40,7 @@ interface GlobalDataActions {
   removeResume: (resumeId: string) => void;
 }
 
-export function useGlobalData(): GlobalDataState & GlobalDataActions {
+export function useGlobalData(): GlobalDataState & { stats: GlobalDataStats } & GlobalDataActions {
   const { user } = useAuth();
   const [state, setState] = useState<GlobalDataState>({
     applications: [],
@@ -78,7 +87,7 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
         lastUpdated: Date.now(),
       }));
     } catch (error) {
-      console.error('Failed to fetch global data:', error);
+      logger.warn('Failed to fetch global data', error);
       setState(prev => ({
         ...prev,
         loading: false,
@@ -109,7 +118,7 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     setState(prev => ({
       ...prev,
       applications: prev.applications.map(app => 
-        app.application_id === application.application_id ? application : app
+        app.job_id === application.job_id ? application : app
       ),
     }));
     
@@ -136,7 +145,7 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     
     setState(prev => ({
       ...prev,
-      applications: prev.applications.filter(app => app.application_id !== applicationId),
+      applications: prev.applications.filter(app => app.job_id !== applicationId),
     }));
     
     // Invalidate cache to ensure fresh data on next fetch
@@ -194,14 +203,10 @@ export function useGlobalData(): GlobalDataState & GlobalDataActions {
     const applications = state.applications;
     return {
       totalApplications: applications.length,
-      totalInterviews: applications.filter(app => 
-        app.status === 'Interview' || app.status === 'Interview Scheduled'
-      ).length,
+      totalInterviews: applications.filter(app => app.status === 'Interviewing').length,
       totalOffers: applications.filter(app => app.status === 'Offer').length,
       totalRejections: applications.filter(app => app.status === 'Rejected').length,
-      pendingApplications: applications.filter(app => 
-        app.status === 'Applied' || app.status === 'Under Review'
-      ).length,
+      pendingApplications: applications.filter(app => app.status === 'Applied').length,
     };
   }, [state.applications]);
 

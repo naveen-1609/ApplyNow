@@ -1,35 +1,28 @@
 'use server';
 
-import { getFirestore, collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { adminDb, Timestamp } from '@/lib/firebase-admin';
+import { runtimeTuning } from '@/lib/config/runtime-tuning';
+import { getSchedule } from '@/lib/services/schedules-server';
+import { getTodayTarget } from '@/lib/services/targets-server';
 import type { JobApplication, Schedule, Target } from '@/lib/types';
 import { format } from 'date-fns';
 import sgMail from '@sendgrid/mail';
-
-// Ensure Firebase is initialized for server-side use
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-if (getApps().length === 0 && firebaseConfig.projectId) {
-  initializeApp(firebaseConfig);
-}
-
-const db = getFirestore();
+import { runWithConcurrency } from '@/lib/utils/parallel';
+import { logger } from '@/lib/utils/logger';
 
 // Initialize SendGrid - must have API key from environment
 const sendGridApiKey = process.env.SENDGRID_API_KEY;
+const sendGridFromEmail =
+  process.env.SENDGRID_FROM_EMAIL ||
+  process.env.SENDGRID_VERIFIED_SENDER ||
+  'info@appconsole.tech';
+const sendGridFromName = process.env.SENDGRID_FROM_NAME || 'Application Console';
 
 if (!sendGridApiKey) {
-  console.error('⚠️ SENDGRID_API_KEY is not set in environment variables. Email notifications will not work.');
+  logger.warn('SENDGRID_API_KEY is not set in environment variables. Email notifications will not work.');
 } else {
   sgMail.setApiKey(sendGridApiKey);
-  console.log('✅ SendGrid initialized successfully');
+  logger.info('SendGrid initialized successfully');
 }
 
 // Email template variables
@@ -42,29 +35,23 @@ export interface EmailVariables {
 
 // Get user's applications for today
 async function getUserApplicationsToday(userId: string): Promise<JobApplication[]> {
-  if (!db) {
-    console.warn('Firestore not initialized, cannot fetch applications');
-    return [];
-  }
-  
   try {
-    // Get from applications collection (new structure)
-    const applicationsCol = collection(db, 'applications');
-    const applicationsQuery = query(
-      applicationsCol,
-      where('user_id', '==', userId)
-    );
-    const snapshot = await getDocs(applicationsQuery);
-    
     const todayString = format(new Date(), 'yyyy-MM-dd');
-    
-    const applications = snapshot.docs
-      .map(doc => {
+
+    const snapshots = await Promise.all([
+      adminDb.collection('job_applications').where('user_id', '==', userId).get(),
+      adminDb.collection('applications').where('user_id', '==', userId).get(),
+    ]);
+
+    const applicationMap = new Map<string, JobApplication>();
+
+    snapshots.forEach((snapshot) => {
+      snapshot.docs.forEach((doc) => {
         const data = doc.data();
         const appliedDate = data.applied_date?.toDate ? data.applied_date.toDate() : new Date(data.applied_date);
-        const lastUpdated = data.last_updated?.toDate ? data.last_updated.toDate() : new Date();
-        
-        return {
+        const lastUpdated = data.last_updated?.toDate ? data.last_updated.toDate() : (data.last_updated ? new Date(data.last_updated) : new Date());
+
+        const application = {
           job_id: doc.id,
           user_id: data.user_id || userId,
           company_name: data.company_name || '',
@@ -72,14 +59,19 @@ async function getUserApplicationsToday(userId: string): Promise<JobApplication[
           job_link: data.job_link || '',
           job_description: data.job_description || '',
           resume_id: data.resume_id || null,
+          cover_letter_id: data.cover_letter_id || null,
           status: data.status || 'Applied',
           applied_date: appliedDate,
           last_updated: lastUpdated,
         } as JobApplication;
-      })
-      .filter(app => format(app.applied_date, 'yyyy-MM-dd') === todayString);
-    
-    return applications;
+
+        if (format(application.applied_date, 'yyyy-MM-dd') === todayString) {
+          applicationMap.set(doc.id, application);
+        }
+      });
+    });
+
+    return Array.from(applicationMap.values());
   } catch (error) {
     console.error('Error fetching applications for email:', error);
     return [];
@@ -88,7 +80,8 @@ async function getUserApplicationsToday(userId: string): Promise<JobApplication[
 
 // Generate motivational message based on progress
 function generateMotivationalMessage(applicationsToday: number, dailyTarget: number): string {
-  const progress = (applicationsToday / dailyTarget) * 100;
+  const safeTarget = Math.max(dailyTarget, 1);
+  const progress = (applicationsToday / safeTarget) * 100;
   
   if (progress >= 100) {
     return "🎉 Amazing! You've exceeded your daily target! You're on fire today!";
@@ -117,46 +110,41 @@ function replaceTemplateVariables(template: string, variables: EmailVariables): 
 // Send email using SendGrid
 async function sendEmail(to: string, subject: string, content: string): Promise<boolean> {
   try {
-    const sendGridApiKey = process.env.SENDGRID_API_KEY;
-    
     if (!sendGridApiKey) {
-      console.error('❌ SendGrid API key not configured. Email not sent.');
+      logger.error('SendGrid API key not configured. Email not sent.');
       return false;
     }
 
-    // Ensure SendGrid is initialized
-    if (!sgMail) {
-      console.error('❌ SendGrid not initialized');
+    if (!to) {
+      logger.error('Recipient email is missing. Email not sent.');
       return false;
     }
-
-    // Use domain email address
-    const fromEmail = 'info@appconsole.tech';
 
     const msg = {
       to,
       from: {
-        email: fromEmail,
-        name: 'Application Console'
+        email: sendGridFromEmail,
+        name: sendGridFromName,
       },
       subject,
       html: content,
+      text: content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
     };
 
     try {
       await sgMail.send(msg);
-      console.log(`Email sent successfully to ${to} from ${fromEmail}`);
+      logger.info(`Email sent successfully to ${to} from ${sendGridFromEmail}`);
       return true;
     } catch (error) {
       // If verification error, provide helpful message
       if ((error as any).response?.body?.errors?.[0]?.message?.includes('verified Sender Identity')) {
-        console.error('❌ Domain not authenticated. Please authenticate appconsole.tech in SendGrid Dashboard → Settings → Sender Authentication');
+        logger.error(`Sender identity ${sendGridFromEmail} is not authenticated in SendGrid.`);
         return false;
       }
       throw error;
     }
   } catch (error) {
-    console.error('Failed to send email:', error);
+    logger.error('Failed to send email', error);
     return false;
   }
 }
@@ -472,11 +460,12 @@ function createHTMLWrapper(textContent: string, type: 'reminder' | 'summary'): s
 export async function sendReminderEmail(userId: string, userEmail: string, schedule: Schedule, target: Target): Promise<boolean> {
   try {
     const applicationsToday = await getUserApplicationsToday(userId);
+    const safeDailyTarget = Math.max(target.daily_target || 0, 1);
     const variables: EmailVariables = {
-      daily_target: target.daily_target,
+      daily_target: safeDailyTarget,
       applications_today: applicationsToday.length,
-      progress_percentage: (applicationsToday.length / target.daily_target) * 100,
-      motivational_message: generateMotivationalMessage(applicationsToday.length, target.daily_target),
+      progress_percentage: (applicationsToday.length / safeDailyTarget) * 100,
+      motivational_message: generateMotivationalMessage(applicationsToday.length, safeDailyTarget),
     };
 
     const subject = `🌅 Daily Job Search Reminder - ${format(new Date(), 'MMM d, yyyy')}`;
@@ -495,11 +484,12 @@ export async function sendReminderEmail(userId: string, userEmail: string, sched
 export async function sendSummaryEmail(userId: string, userEmail: string, schedule: Schedule, target: Target): Promise<boolean> {
   try {
     const applicationsToday = await getUserApplicationsToday(userId);
+    const safeDailyTarget = Math.max(target.daily_target || 0, 1);
     const variables: EmailVariables = {
-      daily_target: target.daily_target,
+      daily_target: safeDailyTarget,
       applications_today: applicationsToday.length,
-      progress_percentage: (applicationsToday.length / target.daily_target) * 100,
-      motivational_message: generateMotivationalMessage(applicationsToday.length, target.daily_target),
+      progress_percentage: (applicationsToday.length / safeDailyTarget) * 100,
+      motivational_message: generateMotivationalMessage(applicationsToday.length, safeDailyTarget),
     };
 
     const subject = `🌙 Daily Job Search Summary - ${format(new Date(), 'MMM d, yyyy')}`;
@@ -521,101 +511,63 @@ export async function getUsersForEmailReminder(reminderType: 'morning_reminder' 
   schedule: Schedule;
   target: Target;
 }>> {
-  if (!db) {
-    console.warn('Firestore not initialized, cannot fetch users');
-    return [];
-  }
-
   const now = new Date();
   const currentHour = now.getHours().toString().padStart(2, '0');
   const currentMinute = now.getMinutes().toString().padStart(2, '0');
   const currentTime = `${currentHour}:${currentMinute}`;
 
   try {
-    // Get all users from users collection
-    const usersCol = collection(db, 'users');
-    const usersSnapshot = await getDocs(usersCol);
+    const usersSnapshot = await adminDb.collection('users').get();
 
-    const users: Array<{
+    const results = await runWithConcurrency(usersSnapshot.docs, runtimeTuning.performance.asyncProcessing.externalConcurrency, async (userDoc) => {
+      const userData = userDoc.data();
+      const userEmail = userData.email as string;
+
+      if (!userEmail) {
+        return null;
+      }
+
+      const [schedule, target] = await Promise.all([
+        getSchedule(userDoc.id),
+        getTodayTarget(userDoc.id),
+      ]);
+
+      if (!schedule || !target) {
+        return null;
+      }
+
+      if (!schedule.email_enabled) {
+        return null;
+      }
+
+      const shouldSendReminder =
+        reminderType === 'morning_reminder' &&
+        schedule.reminder_time === currentTime;
+
+      const shouldSendSummary =
+        reminderType === 'evening_summary' &&
+        schedule.summary_time === currentTime;
+
+      if (!shouldSendReminder && !shouldSendSummary) {
+        return null;
+      }
+
+      return {
+        userId: userDoc.id,
+        userEmail,
+        schedule,
+        target,
+      };
+    });
+
+    return results.filter(Boolean) as Array<{
       userId: string;
       userEmail: string;
       schedule: Schedule;
       target: Target;
-    }> = [];
-
-    for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-      const userEmail = userData.email as string;
-      
-      if (!userEmail) continue;
-
-      // Get schedule from schedules collection
-      const schedulesCol = collection(db, 'schedules');
-      const scheduleQuery = query(
-        schedulesCol,
-        where('user_id', '==', userDoc.id)
-      );
-      const scheduleSnapshot = await getDocs(scheduleQuery);
-      
-      if (scheduleSnapshot.empty) continue;
-      
-      const scheduleData = scheduleSnapshot.docs[0].data();
-      const schedule = {
-        schedule_id: scheduleSnapshot.docs[0].id,
-        user_id: scheduleData.user_id,
-        reminder_time: scheduleData.reminder_time,
-        summary_time: scheduleData.summary_time,
-        email_enabled: scheduleData.email_enabled,
-        reminder_email_template: scheduleData.reminder_email_template,
-        summary_email_template: scheduleData.summary_email_template,
-      } as Schedule;
-
-      if (!schedule.email_enabled) continue;
-
-      // Get target from targets collection for today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetsCol = collection(db, 'targets');
-      const targetQuery = query(
-        targetsCol,
-        where('user_id', '==', userDoc.id),
-        where('current_date', '==', Timestamp.fromDate(today))
-      );
-      const targetSnapshot = await getDocs(targetQuery);
-      
-      if (targetSnapshot.empty) continue;
-      
-      const targetData = targetSnapshot.docs[0].data();
-      const target = {
-        target_id: targetSnapshot.docs[0].id,
-        user_id: targetData.user_id,
-        daily_target: targetData.daily_target,
-        current_date: targetData.current_date.toDate(),
-        applications_done: targetData.applications_done || 0,
-        status_color: targetData.status_color || 'Green',
-      } as Target;
-
-      const shouldSendReminder = 
-        reminderType === 'morning_reminder' && 
-        schedule.reminder_time === currentTime;
-      
-      const shouldSendSummary = 
-        reminderType === 'evening_summary' && 
-        schedule.summary_time === currentTime;
-
-      if (shouldSendReminder || shouldSendSummary) {
-        users.push({
-          userId: userDoc.id,
-          userEmail,
-          schedule,
-          target,
-        });
-      }
-    }
-
-    return users;
+    }>;
   } catch (error) {
-    console.error('Failed to get users for email reminder:', error);
+    logger.error('Failed to get users for email reminder', error);
     return [];
   }
 }

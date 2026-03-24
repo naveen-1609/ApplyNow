@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, Timestamp } from '@/lib/firebase-admin';
+import { isOwnerEmail } from '@/lib/config/app-user';
 
 /**
  * Create or fix user endpoint - creates user document if missing or fixes email
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isAdminEmail = email.toLowerCase() === 'naveenvenkat58@gmail.com';
+    const isAdminEmail = isOwnerEmail(email);
 
     // Try to find existing user by email
     let targetUserId = userId;
@@ -71,9 +72,8 @@ export async function GET(request: NextRequest) {
       const userData = {
         email: email,
         name: name,
-        subscriptionPlan: isAdminEmail ? 'ADMIN' : 'FREE',
-        subscriptionStatus: 'active',
         isAdmin: isAdminEmail,
+        role: isAdminEmail ? 'owner' : 'restricted',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       };
@@ -125,9 +125,8 @@ export async function GET(request: NextRequest) {
       // Also update admin status if admin email
       if (isAdminEmail) {
         await adminDb.collection('users').doc(targetUserId!).update({
-          subscriptionPlan: SubscriptionPlan.ADMIN,
           isAdmin: true,
-          subscriptionStatus: 'active',
+          role: 'owner',
         });
       }
 
@@ -152,7 +151,7 @@ export async function GET(request: NextRequest) {
       isAdmin: isAdminEmail,
       userData: {
         name: userData?.name,
-        subscriptionPlan: userData?.subscriptionPlan,
+        role: userData?.role || (userData?.isAdmin ? 'owner' : 'restricted'),
         isAdmin: userData?.isAdmin,
       },
     });
@@ -168,4 +167,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

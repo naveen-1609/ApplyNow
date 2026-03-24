@@ -8,6 +8,7 @@ import {
   ReactNode,
   useMemo,
   useCallback,
+  useRef,
 } from 'react';
 import {
   onAuthStateChanged,
@@ -19,6 +20,9 @@ import {
 } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useRouter } from 'next/navigation';
+import { checkEmailAccess, bootstrapAuthenticatedUser, bootstrapAuthenticatedUserWithToken } from '@/lib/services/permissions-client';
+import { logger } from '@/lib/utils/logger';
+import { clearAtsSession } from '@/lib/state/ats-session-store';
 
 interface AuthContextType {
   user: User | null;
@@ -35,70 +39,95 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function OptimizedAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [initialized, setInitialized] = useState(false);
-  
-  // Safely get router only in client-side
-  const router = typeof window !== 'undefined' ? useRouter() : null;
+  const router = useRouter();
+  const hasNavigatedRef = useRef(false);
+
+  const ensureAuthorizedAccess = useCallback(async (email: string | null | undefined) => {
+    if (!email) {
+      throw new Error('Email address is required.');
+    }
+
+    const response = await checkEmailAccess(email);
+    if (!response.access || !response.access.access_enabled) {
+      throw new Error('This email has not been approved by the admin yet.');
+    }
+
+    return response.access;
+  }, []);
+
+  const bootstrapSession = useCallback(async (authUser?: User | null) => {
+    const token = authUser ? await authUser.getIdToken(true) : null;
+    const response = token
+      ? await bootstrapAuthenticatedUserWithToken(token)
+      : await bootstrapAuthenticatedUser();
+    if (!response.access?.access_enabled) {
+      throw new Error('This account is not enabled.');
+    }
+    return response.access;
+  }, []);
 
   // Memoize auth functions to prevent unnecessary re-renders
   const signInWithGoogle = useCallback(async () => {
     if (!auth) {
-      console.error("Firebase auth is not initialized.");
+      logger.error('Firebase auth is not initialized.');
       throw new Error("Firebase auth is not initialized.");
     }
     setLoading(true);
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
-      // Don't set loading to false here - let the auth state change handle it
-      // Navigation is handled in the auth state listener
+      const result = await signInWithPopup(auth, provider);
+      await ensureAuthorizedAccess(result.user.email);
+      await bootstrapSession(result.user);
     } catch (error) {
-      console.error('Error signing in with Google', error);
+      logger.error('Error signing in with Google', error);
+      await auth.signOut().catch(() => undefined);
       setLoading(false);
       throw error;
     }
-  }, []);
+  }, [bootstrapSession, ensureAuthorizedAccess]);
 
   const signUpWithEmail = useCallback(async (email: string, password: string) => {
     if (!auth) throw new Error("Firebase auth is not initialized.");
     setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      // Don't set loading to false here - let the auth state change handle it
-      // Navigation is handled in the auth state listener
+      await ensureAuthorizedAccess(email);
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await bootstrapSession(credential.user);
     } catch (error) {
-      console.error('Error signing up with email', error);
+      logger.error('Error signing up with email', error);
+      await auth.signOut().catch(() => undefined);
       setLoading(false);
       throw error;
     }
-  }, []);
+  }, [bootstrapSession, ensureAuthorizedAccess]);
 
   const signInWithEmail = useCallback(async (email: string, password: string) => {
     if (!auth) throw new Error("Firebase auth is not initialized.");
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      // Don't set loading to false here - let the auth state change handle it
-      // Navigation is handled in the auth state listener
+      await ensureAuthorizedAccess(email);
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      await bootstrapSession(credential.user);
     } catch (error) {
-      console.error('Error signing in with email', error);
+      logger.error('Error signing in with email', error);
+      await auth.signOut().catch(() => undefined);
       setLoading(false);
       throw error;
     }
-  }, []);
+  }, [bootstrapSession, ensureAuthorizedAccess]);
 
   const signOut = useCallback(async () => {
     if (!auth) {
-      console.error("Firebase auth is not initialized.");
+      logger.error('Firebase auth is not initialized.');
       return;
     }
     try {
+      clearAtsSession();
       await auth.signOut();
-      if (router) {
-        router.push('/');
-      }
+      hasNavigatedRef.current = false;
+      router.push('/');
     } catch (error) {
-      console.error('Error signing out', error);
+      logger.error('Error signing out', error);
     }
   }, [router]);
 
@@ -106,7 +135,6 @@ export function OptimizedAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!auth) {
       setLoading(false);
-      setInitialized(true);
       return;
     }
 
@@ -116,48 +144,58 @@ export function OptimizedAuthProvider({ children }: { children: ReactNode }) {
 
     // Fallback timeout to prevent infinite loading
     loadingTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn('Auth loading timeout - forcing loading to false');
+      if (mounted) {
+        logger.warn('Auth loading timeout - forcing loading to false');
         setLoading(false);
-        setInitialized(true);
       }
     }, 5000); // 5 second timeout
 
     try {
       unsubscribe = onAuthStateChanged(auth, (user) => {
-        if (mounted) {
-          console.log('Auth state changed:', user ? 'User logged in' : 'User logged out');
-          setUser(user);
-          setLoading(false);
-          setInitialized(true);
-          
-          // Clear the timeout since auth state changed
-          if (loadingTimeout) {
-            clearTimeout(loadingTimeout);
-          }
-          
-          // Small delay to ensure auth state is fully propagated
-          if (user && router) {
-            setTimeout(() => {
-              if (mounted) {
-                const currentPath = window.location.pathname;
-                // Only navigate if we're on the login page or root
-                if (currentPath === '/' || currentPath === '/login') {
-                  console.log('Auth hook - Navigating to dashboard from:', currentPath);
-                  router.push('/dashboard');
-                } else {
-                  console.log('Auth hook - Already on protected route:', currentPath);
+        void (async () => {
+          if (!mounted) return;
+
+          try {
+            if (user) {
+              await bootstrapSession(user);
+            }
+
+            logger.info(`Auth state changed: ${user ? 'User logged in' : 'User logged out'}`);
+            if (!user) {
+              clearAtsSession();
+            }
+            setUser(user);
+            setLoading(false);
+            hasNavigatedRef.current = false;
+
+            if (loadingTimeout) {
+              clearTimeout(loadingTimeout);
+            }
+
+            if (user) {
+              setTimeout(() => {
+                if (mounted && !hasNavigatedRef.current) {
+                  const currentPath = window.location.pathname;
+                  if (currentPath === '/' || currentPath === '/login' || currentPath === '/signup') {
+                    logger.info(`Auth hook navigating to dashboard from: ${currentPath}`);
+                    hasNavigatedRef.current = true;
+                    router.push('/dashboard');
+                  }
                 }
-              }
-            }, 100);
+              }, 100);
+            }
+          } catch (error) {
+            logger.error('Error validating authenticated session', error);
+            await auth?.signOut().catch(() => undefined);
+            setUser(null);
+            setLoading(false);
           }
-        }
+        })();
       });
     } catch (error) {
-      console.error('Error setting up auth listener:', error);
+      logger.error('Error setting up auth listener', error);
       if (mounted) {
         setLoading(false);
-        setInitialized(true);
         if (loadingTimeout) {
           clearTimeout(loadingTimeout);
         }
@@ -173,12 +211,12 @@ export function OptimizedAuthProvider({ children }: { children: ReactNode }) {
         clearTimeout(loadingTimeout);
       }
     };
-  }, [router, loading]);
+  }, [bootstrapSession, router]);
 
   // Memoize context value to prevent unnecessary re-renders
   const contextValue = useMemo(() => ({
     user,
-    loading: loading, // Remove the !initialized check to prevent extended loading
+    loading,
     signInWithGoogle,
     signUpWithEmail,
     signInWithEmail,

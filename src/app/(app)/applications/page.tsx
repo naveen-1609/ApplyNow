@@ -8,14 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { OptimizedApplicationListView } from '@/components/applications/optimized-application-list-view';
 import { ApplicationGridView } from '@/components/applications/application-grid-view';
 import { AddApplicationSheet } from '@/components/applications/add-application-sheet';
-import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData } from '@/lib/types';
+import type { JobApplication, CreateJobApplicationData, UpdateJobApplicationData, ApplicationSavePayload } from '@/lib/types';
 import { useAuth } from '@/hooks/use-optimized-auth';
 import { useOptimizedApplications } from '@/hooks/use-optimized-applications';
 import { useOptimizedResumes } from '@/hooks/use-optimized-resumes';
 import { useCoverLetters } from '@/hooks/use-cover-letters';
 import { addApplication, updateApplication, deleteApplication } from '@/lib/services/applications';
-import { Skeleton } from '@/components/ui/skeleton';
 import { CompactFastLoader } from '@/components/ui/fast-loader';
+import { logger } from '@/lib/utils/logger';
 
 export default function ApplicationsPage() {
   const { user } = useAuth();
@@ -30,7 +30,7 @@ export default function ApplicationsPage() {
   } = useOptimizedApplications();
   
   const { resumes } = useOptimizedResumes();
-  const { coverLetters } = useCoverLetters();
+  const { coverLetters, add: addCoverLetterToDirectory } = useCoverLetters();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [editingApplication, setEditingApplication] = useState<JobApplication | null>(null);
 
@@ -44,42 +44,55 @@ export default function ApplicationsPage() {
     setIsSheetOpen(true);
   };
 
-  const handleSaveApplication = async (appData: CreateJobApplicationData | UpdateJobApplicationData) => {
+  const handleSaveApplication = async (appData: ApplicationSavePayload) => {
     if (!user) return;
 
     try {
+      const generatedDraft = appData.generated_cover_letter;
+      let nextCoverLetterId = 'cover_letter_id' in appData ? appData.cover_letter_id || null : null;
+
+      if (!editingApplication && generatedDraft) {
+        nextCoverLetterId = await addCoverLetterToDirectory(
+          `${appData.company_name || 'Company'} - ${appData.job_title || 'Role'} Cover Letter`,
+          generatedDraft.generated_text,
+          appData.company_name || undefined,
+          appData.job_title || undefined
+        );
+      }
+
+      const saveData = {
+        ...appData,
+        cover_letter_id: nextCoverLetterId,
+      };
+      delete (saveData as Partial<ApplicationSavePayload>).generated_cover_letter;
+
       if (editingApplication) {
-        // Optimistic update for existing application
         const updatedApp: JobApplication = {
           ...editingApplication,
-          ...appData,
+          ...saveData,
           last_updated: new Date()
         };
         optimisticUpdateExisting(updatedApp);
         
-        // Update in background
-        await updateApplication(user.uid, editingApplication.job_id, appData as UpdateJobApplicationData);
+        await updateApplication(user.uid, editingApplication.job_id, saveData as UpdateJobApplicationData);
       } else {
-        // Create new application optimistically
         const newApp: JobApplication = {
-          job_id: `temp_${Date.now()}`, // Temporary ID
+          job_id: `temp_${Date.now()}`,
           user_id: user.uid,
-          company_name: appData.company_name || '',
-          job_title: appData.job_title || '',
-          job_link: appData.job_link || '',
-          job_description: appData.job_description || '',
-          resume_id: appData.resume_id || null,
-          cover_letter_id: (appData as any).cover_letter_id || null,
-          status: appData.status || 'Applied',
-          applied_date: appData.applied_date || new Date(),
+          company_name: saveData.company_name || '',
+          job_title: saveData.job_title || '',
+          job_link: saveData.job_link || '',
+          job_description: saveData.job_description || '',
+          resume_id: saveData.resume_id || null,
+          cover_letter_id: saveData.cover_letter_id || null,
+          status: saveData.status || 'Applied',
+          applied_date: saveData.applied_date || new Date(),
           last_updated: new Date()
         };
         optimisticUpdate(newApp);
         
-        // Create in background and update with real ID
-        const realId = await addApplication(user.uid, appData as CreateJobApplicationData);
+        const realId = await addApplication(user.uid, saveData as CreateJobApplicationData);
         
-        // Update with real ID (remove temp and add with real ID)
         optimisticDelete(newApp.job_id);
         const realApp: JobApplication = {
           ...newApp,
@@ -88,9 +101,9 @@ export default function ApplicationsPage() {
         optimisticUpdate(realApp);
       }
     } catch (error) {
-        console.error("Failed to save application", error);
-        // Revert optimistic update on error
+        logger.error('Failed to save application', error);
         await refetch();
+        throw error;
     }
   };
 
@@ -103,8 +116,7 @@ export default function ApplicationsPage() {
       try {
           await deleteApplication(user.uid, jobId);
       } catch (error) {
-          console.error("Failed to delete application", error);
-          // Revert optimistic delete on error
+          logger.error('Failed to delete application', error);
           await refetch();
       }
   }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserSettings } from '@/lib/services/users';
-import { getSchedule } from '@/lib/services/schedules';
-import { getTodayTarget } from '@/lib/services/targets';
+import { getSchedule } from '@/lib/services/schedules-server';
+import { getTodayTarget } from '@/lib/services/targets-server';
 
 export async function GET(request: NextRequest) {
   try {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, Timestamp } from '@/lib/firebase-admin';
+import { isOwnerEmail } from '@/lib/config/app-user';
 
 /**
  * Complete setup endpoint - creates user document, schedule, and target if missing
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const isAdminEmail = email.toLowerCase() === 'naveenvenkat58@gmail.com';
+    const isAdminEmail = isOwnerEmail(email);
     const results: any = {
       email,
       userId,
@@ -49,9 +50,8 @@ export async function GET(request: NextRequest) {
       await adminDb.collection('users').doc(userId).set({
         email: email,
         name: name,
-        subscriptionPlan: isAdminEmail ? 'ADMIN' : 'FREE',
-        subscriptionStatus: 'active',
         isAdmin: isAdminEmail,
+        role: isAdminEmail ? 'owner' : 'restricted',
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
@@ -188,4 +188,3 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
-

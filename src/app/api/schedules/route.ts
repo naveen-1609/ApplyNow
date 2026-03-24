@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, getAuth } from '@/lib/firebase-admin';
+import { adminDb, getAdminAuth } from '@/lib/firebase-admin';
+import { normalizeTimeFormat } from '@/lib/utils/time-format';
 
 async function getUserIdFromRequest(request: NextRequest): Promise<string | null> {
   try {
     const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split('Bearer ')[1];
-      const decodedToken = await getAuth().verifyIdToken(token);
+      const auth = await getAdminAuth();
+      const decodedToken = await auth.verifyIdToken(token);
       return decodedToken.uid;
     }
     // Fallback: Allow userId from query/body for backward compatibility
@@ -89,8 +91,8 @@ export async function POST(request: NextRequest) {
     
     const docData = {
       user_id: userId,
-      reminder_time,
-      summary_time,
+      reminder_time: normalizeTimeFormat(reminder_time),
+      summary_time: normalizeTimeFormat(summary_time),
       email_enabled,
       reminder_email_template,
       summary_email_template,
@@ -115,6 +117,13 @@ export async function PUT(request: NextRequest) {
     
     const body = await request.json();
     const { scheduleId, ...updateData } = body;
+
+    if (updateData.reminder_time) {
+      updateData.reminder_time = normalizeTimeFormat(updateData.reminder_time);
+    }
+    if (updateData.summary_time) {
+      updateData.summary_time = normalizeTimeFormat(updateData.summary_time);
+    }
 
     if (!scheduleId) {
       return NextResponse.json({ error: 'Schedule ID is required' }, { status: 400 });

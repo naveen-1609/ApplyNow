@@ -49,7 +49,7 @@ export default function LoginPage() {
             <Logo className="h-12 w-12 text-primary" />
           </div>
           <CardTitle className="font-headline text-3xl text-primary">Welcome Back</CardTitle>
-          <CardDescription>Sign in to your Application Console account.</CardDescription>
+          <CardDescription>Sign in to your personal Application Console workspace.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleEmailLogin} className="space-y-4">
@@ -58,7 +58,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder="you@example.com"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -80,6 +80,9 @@ export default function LoginPage() {
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
           </form>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Sign in with an approved email address. Admin access stays reserved for the workspace owner.
+          </p>
           <div className="relative my-4">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
@@ -103,12 +106,7 @@ export default function LoginPage() {
           </Button>
         </CardContent>
         <CardFooter className="text-sm justify-center">
-          <p>
-            Don't have an account?{' '}
-            <Link href="/signup" className="font-bold text-primary hover:underline">
-              Sign up
-            </Link>
-          </p>
+          <p>New here? <Link href="/signup" className="text-primary underline-offset-4 hover:underline">Create your account</Link></p>
         </CardFooter>
       </Card>
     </div>

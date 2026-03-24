@@ -1,15 +1,24 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/use-optimized-auth';
-import { subscriptionService, UserProfile } from '@/lib/subscription/subscription-service';
-import { SubscriptionPlan, getUserLimits, canUseFeature } from '@/lib/types/subscription';
+import { isOwnerEmail } from '@/lib/config/app-user';
+import type { PermissionLevel } from '@/lib/types';
+import { getMyPermissions } from '@/lib/services/permissions-client';
+import { logger } from '@/lib/utils/logger';
+
+type SingleUserProfile = {
+  id: string;
+  email: string;
+  name: string;
+  isAdmin: boolean;
+  permissions: PermissionLevel;
+};
 
 interface SubscriptionContextType {
-  userProfile: UserProfile | null;
+  userProfile: SingleUserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
-  upgradeSubscription: (plan: SubscriptionPlan) => Promise<void>;
   canUseAIFeatures: boolean;
   canUseNotifications: boolean;
   hasUnlimitedAccess: boolean;
@@ -22,153 +31,69 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const isAdmin = isOwnerEmail(user?.email);
+  const [permissionLevel, setPermissionLevel] = useState<PermissionLevel>('records_only');
   const [loading, setLoading] = useState(true);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) {
-      setUserProfile(null);
+      setPermissionLevel('records_only');
       setLoading(false);
       return;
     }
 
+    if (isAdmin) {
+      setPermissionLevel('ai_features');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      let profile = await subscriptionService.getUserProfile(user.uid);
-      
-      if (!profile) {
-        // Create profile if it doesn't exist
-        try {
-          profile = await subscriptionService.createUserProfile(
-            user.uid,
-            user.email || '',
-            user.displayName || 'User'
-          );
-        } catch (createError) {
-          console.error('Error creating user profile:', createError);
-          // If profile creation fails, create a default profile object
-          // Check if this is admin email
-          const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
-          profile = {
-            id: user.uid,
-            email: user.email || '',
-            name: user.displayName || 'User',
-            subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : SubscriptionPlan.FREE,
-            subscriptionStatus: 'active',
-            isAdmin: isAdminEmail,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-        }
-      }
-      
-      setUserProfile(profile);
+      const response = await getMyPermissions();
+      setPermissionLevel(response.access?.permissions || 'records_only');
     } catch (error) {
-      console.error('Error refreshing profile:', error);
-      // Set a default profile to prevent crashes
-      // Check if this is admin email
-      const isAdminEmail = user.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
-      setUserProfile({
-        id: user.uid,
-        email: user.email || '',
-        name: user.displayName || 'User',
-        subscriptionPlan: isAdminEmail ? SubscriptionPlan.ADMIN : SubscriptionPlan.FREE,
-        subscriptionStatus: 'active',
-        isAdmin: isAdminEmail,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+      logger.warn('Failed to load permission profile', error);
+      setPermissionLevel('records_only');
     } finally {
       setLoading(false);
     }
-  };
-
-  const upgradeSubscription = async (plan: SubscriptionPlan) => {
-    if (!user || !userProfile) return;
-
-    try {
-      const startDate = new Date();
-      let endDate: Date | undefined;
-
-      // Set end date based on plan
-      if (plan === SubscriptionPlan.PLUS) {
-        endDate = new Date();
-        endDate.setMonth(endDate.getMonth() + 1); // Monthly
-      } else if (plan === SubscriptionPlan.PRO) {
-        // Pro is one-time, no end date
-        endDate = undefined;
-      }
-
-      await subscriptionService.updateSubscription(
-        user.uid,
-        plan,
-        'active',
-        startDate,
-        endDate
-      );
-
-      // Refresh profile to get updated data
-      await refreshProfile();
-    } catch (error) {
-      console.error('Error upgrading subscription:', error);
-      throw error;
-    }
-  };
+  }, [isAdmin, user]);
 
   useEffect(() => {
-    if (user) {
-      refreshProfile();
-      
-      // Check subscription expiration periodically (every 5 minutes)
-      const expirationCheckInterval = setInterval(async () => {
-        if (user) {
-          try {
-            await subscriptionService.checkAndHandleExpiration(user.uid);
-            // Reload profile if expiration was handled
-            await refreshProfile();
-          } catch (error) {
-            console.error('Error checking subscription expiration:', error);
+    void refreshProfile();
+  }, [refreshProfile]);
+
+  const userProfile = useMemo<SingleUserProfile | null>(
+    () =>
+      user
+        ? {
+            id: user.uid,
+            email: user.email || '',
+            name: user.displayName || 'Naveen',
+            isAdmin,
+            permissions: isAdmin ? 'ai_features' : permissionLevel,
           }
-        }
-      }, 5 * 60 * 1000); // 5 minutes
-      
-      return () => clearInterval(expirationCheckInterval);
-    }
-  }, [user]);
-
-  // Check if user is admin email (as fallback for immediate recognition)
-  const isAdminEmail = user?.email?.toLowerCase() === 'naveenvenkat58@gmail.com';
-  
-  // Determine the effective subscription plan
-  // Priority: 1) Admin email -> ADMIN, 2) User profile plan, 3) FREE
-  const effectivePlan = isAdminEmail 
-    ? SubscriptionPlan.ADMIN 
-    : (userProfile?.subscriptionPlan || SubscriptionPlan.FREE);
-  
-  // Computed values based on effective subscription
-  const limits = getUserLimits(effectivePlan);
-  
-  // Admin status: check profile first, then email as fallback
-  const effectiveIsAdmin = userProfile?.isAdmin || isAdminEmail;
-  
-  const contextValue: SubscriptionContextType = {
-    userProfile,
-    loading,
-    refreshProfile,
-    upgradeSubscription,
-    canUseAIFeatures: limits?.hasAIFeatures || false,
-    canUseNotifications: limits?.hasNotifications || false,
-    hasUnlimitedAccess: limits?.hasUnlimitedAccess || false,
-    hasFutureFeatures: limits?.hasFutureFeatures || false,
-    maxApplications: limits?.maxApplications || 100,
-    isAdmin: effectiveIsAdmin,
-  };
-
-  return (
-    <SubscriptionContext.Provider value={contextValue}>
-      {children}
-    </SubscriptionContext.Provider>
+        : null,
+    [isAdmin, permissionLevel, user]
   );
+
+  const contextValue = useMemo<SubscriptionContextType>(
+    () => ({
+      userProfile,
+      loading,
+      refreshProfile,
+      canUseAIFeatures: isAdmin || permissionLevel === 'ai_features',
+      canUseNotifications: true,
+      hasUnlimitedAccess: isAdmin || permissionLevel === 'ai_features',
+      hasFutureFeatures: true,
+      maxApplications: Number.MAX_SAFE_INTEGER,
+      isAdmin,
+    }),
+    [isAdmin, loading, permissionLevel, refreshProfile, userProfile]
+  );
+
+  return <SubscriptionContext.Provider value={contextValue}>{children}</SubscriptionContext.Provider>;
 }
 
 export function useSubscription() {
@@ -179,22 +104,13 @@ export function useSubscription() {
   return context;
 }
 
-// Helper hook for checking specific features
 export function useFeatureAccess() {
-  const { userProfile } = useSubscription();
-  
-  const canUse = (feature: keyof ReturnType<typeof getUserLimits>) => {
-    if (!userProfile) return false;
-    return canUseFeature(userProfile.subscriptionPlan, feature);
-  };
-
-  const limits = userProfile ? getUserLimits(userProfile.subscriptionPlan) : getUserLimits(SubscriptionPlan.FREE);
-
+  const { canUseAIFeatures, canUseNotifications, hasUnlimitedAccess, hasFutureFeatures, maxApplications } = useSubscription();
   return {
-    canUseAIFeatures: limits?.hasAIFeatures || false,
-    canUseNotifications: limits?.hasNotifications || false,
-    hasUnlimitedAccess: limits?.hasUnlimitedAccess || false,
-    hasFutureFeatures: limits?.hasFutureFeatures || false,
-    maxApplications: limits?.maxApplications || 100,
+    canUseAIFeatures,
+    canUseNotifications,
+    hasUnlimitedAccess,
+    hasFutureFeatures,
+    maxApplications,
   };
 }

@@ -70,7 +70,8 @@ function initializeFirebase() {
     }
     
     // Initialize storage
-    storage = getStorage(app);
+    const bucketName = firebaseConfig.storageBucket?.trim();
+    storage = bucketName ? getStorage(app, `gs://${bucketName}`) : getStorage(app);
     console.log('✅ Firebase storage initialized');
     
     // Performance optimizations

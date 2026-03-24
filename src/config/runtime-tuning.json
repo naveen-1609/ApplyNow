@@ -1,0 +1,40 @@
+{
+  "logging": {
+    "level": "info",
+    "enableClient": true,
+    "enableServer": true,
+    "prefix": "ApplyNow"
+  },
+  "performance": {
+    "asyncProcessing": {
+      "enabled": true,
+      "externalConcurrency": 4
+    },
+    "caching": {
+      "cleanupIntervalMs": 300000,
+      "firebasePoolCleanupIntervalMs": 600000,
+      "memory": {
+        "defaultTtlMs": 120000,
+        "applicationsTtlMs": 120000,
+        "resumesTtlMs": 300000,
+        "userSettingsTtlMs": 60000,
+        "todayTargetTtlMs": 60000,
+        "schedulesTtlMs": 300000
+      },
+      "firebasePool": {
+        "defaultTtlMs": 300000,
+        "maxCacheSize": 100,
+        "maxCacheAgeMs": 1800000,
+        "maxConnections": 10
+      }
+    },
+    "network": {
+      "requestTimeoutMs": 10000,
+      "keepAlive": true,
+      "cdn": {
+        "staticAssetMaxAgeSeconds": 31536000,
+        "publicAssetMaxAgeSeconds": 86400
+      }
+    }
+  }
+}

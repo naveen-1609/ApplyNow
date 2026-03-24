@@ -8,13 +8,16 @@ import { CoverLetterCard } from '@/components/cover-letters/cover-letter-card';
 import { useAuth } from '@/hooks/use-optimized-auth';
 import { useCoverLetters } from '@/hooks/use-cover-letters';
 import { CompactFastLoader } from '@/components/ui/fast-loader';
+import { AddCoverLetterDialog } from '@/components/cover-letters/add-cover-letter-dialog';
+import { logger } from '@/lib/utils/logger';
 
 export default function CoverLettersPage() {
   const { user } = useAuth();
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const { 
     coverLetters, 
     loading, 
-    refetch, 
+    add,
     remove,
     update,
   } = useCoverLetters();
@@ -29,13 +32,18 @@ export default function CoverLettersPage() {
     }
   };
   
-  const handleUpdateCoverLetter = async (coverLetterId: string, newText: string, name?: string) => {
+  const handleUpdateCoverLetter = async (
+    coverLetterId: string,
+    newText: string,
+    name?: string,
+    options?: { additionalTemplateVariables?: string[] }
+  ) => {
     if (!user) return;
     
     try {
-      await update(coverLetterId, newText, name);
+      await update(coverLetterId, newText, name, options);
     } catch(error) {
-      console.error("Failed to update cover letter", error);
+      logger.warn('Failed to update cover letter', error);
     }
   };
 
@@ -43,8 +51,15 @@ export default function CoverLettersPage() {
     <div className="space-y-8">
       <PageHeader
         title="Cover Letter Directory"
-        description="Manage all your cover letters in one place. Generate cover letters from the ATS Checker and save them here."
-      />
+        description="Manage your cover letters and reusable templates in one place. Upload PDF or DOCX files, detect {{ variables }}, and generate tailored versions for each role."
+      >
+        {
+          <Button onClick={() => setIsImportDialogOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Import Cover Letter
+          </Button>
+        }
+      </PageHeader>
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -58,6 +73,7 @@ export default function CoverLettersPage() {
               coverLetter={coverLetter} 
               onDelete={handleDeleteCoverLetter}
               onSaveText={handleUpdateCoverLetter}
+              onCreateCoverLetter={add}
             />
           ))}
         </div>
@@ -65,11 +81,16 @@ export default function CoverLettersPage() {
         <div className="flex h-64 flex-col items-center justify-center rounded-lg border-2 border-dashed">
           <h3 className="text-lg font-medium">No cover letters yet</h3>
           <p className="text-sm text-muted-foreground">
-            Generate a cover letter from the ATS Checker page to get started.
+            Import a PDF or DOCX sample, or add a reusable template with `{{ variables }}` to get started.
           </p>
         </div>
       )}
+
+      <AddCoverLetterDialog
+        isOpen={isImportDialogOpen}
+        onOpenChange={setIsImportDialogOpen}
+        onSave={add}
+      />
     </div>
   );
 }
-

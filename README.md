@@ -32,7 +32,7 @@ See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for complete setup instructions.
 - 📊 **Dashboard Analytics** - Visual insights with KPIs, charts, and application trends
 - 🎯 **Daily Targets** - Set and track daily application goals with calendar view
 - 📬 **Email Notifications** - Automated reminder and summary emails at customizable times
-- 💳 **Subscriptions** - Multiple plan tiers (FREE, PLUS, PRO, ADMIN) with Stripe integration
+- 🔐 **Single-User Access** - Personal workspace locked to one owner account
 - 👤 **User Profile** - Manage profile, links, notes, and templates
 
 ## 🏗️ Tech Stack
@@ -43,7 +43,7 @@ See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for complete setup instructions.
 - **Storage**: Firebase Storage
 - **AI**: Google Genkit + OpenAI GPT-4
 - **Email**: SendGrid
-- **Payments**: Stripe
+- **Access Model**: Single-user owner workspace
 - **Deployment**: Vercel
 - **UI Components**: Radix UI
 
@@ -84,7 +84,7 @@ See [SETUP_GUIDE.md](./SETUP_GUIDE.md) for complete setup instructions.
 - All API routes require authentication
 - Admin users have special access controls
 - Input validation on all forms
-- Secure payment processing with Stripe
+- Owner-only access with Firebase authentication
 
 ## 📊 Application Status
 
@@ -99,7 +99,7 @@ Common issues and solutions:
 - **"Missing or insufficient permissions"** → Deploy Firestore rules
 - **"Index required" error** → Deploy indexes and wait for build
 - **Email not sending** → Check SendGrid API key and sender verification
-- **Stripe not working** → Verify API keys and webhook endpoint
+- **Login blocked** → Sign in with the configured owner email for this installation
 - **AI features not working** → Check OpenAI API key and Genkit server
 
 See [QUICK_REFERENCE.md](./QUICK_REFERENCE.md) for more troubleshooting tips.

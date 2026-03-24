@@ -1,114 +1,82 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth } from '@/hooks/use-optimized-auth';
 import { Logo } from '@/components/icons/logo';
+import { useAuth } from '@/hooks/use-optimized-auth';
 import { useToast } from '@/hooks/use-toast';
 
 export default function SignupPage() {
-  const { user, signUpWithEmail, loading } = useAuth();
   const router = useRouter();
+  const { signUpWithEmail, loading } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  
-  useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
-    }
-  }, [user, router]);
 
-  const handleEmailSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     if (password !== confirmPassword) {
       toast({
         variant: 'destructive',
-        title: 'Signup Failed',
-        description: 'Passwords do not match.',
+        title: 'Password mismatch',
+        description: 'Please make sure both passwords match.',
       });
       return;
     }
+
     try {
       await signUpWithEmail(email, password);
+      router.push('/dashboard');
     } catch (error: any) {
       toast({
         variant: 'destructive',
-        title: 'Signup Failed',
-        description: error.message,
+        title: 'Sign Up Failed',
+        description: error.message || 'Could not create your account.',
       });
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4 relative overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background p-4">
       <div className="absolute inset-0 z-0 opacity-10">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/50 to-transparent rounded-full -translate-x-1/4 -translate-y-1/4 w-[200%] h-[200%]"></div>
+        <div className="absolute inset-0 h-[200%] w-[200%] -translate-x-1/4 -translate-y-1/4 rounded-full bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/50 to-transparent"></div>
       </div>
-      <Card className="w-full max-w-sm z-10 bg-background/80 backdrop-blur-sm border-primary/20">
+      <Card className="z-10 w-full max-w-sm border-primary/20 bg-background/80 backdrop-blur-sm">
         <CardHeader className="text-center">
           <div className="mb-4 flex justify-center">
             <Logo className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="font-headline text-3xl text-primary">Create an Account</CardTitle>
-          <CardDescription>Join Application Console to start your journey.</CardDescription>
+          <CardTitle className="font-headline text-3xl text-primary">Create Account</CardTitle>
+          <CardDescription>Use an email address that has already been approved by the workspace admin.</CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleEmailSignup} className="space-y-4">
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
+              <Label htmlFor="signup-email">Email</Label>
+              <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                type="password"
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                minLength={6}
-              />
+              <Label htmlFor="signup-password">Password</Label>
+              <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input 
-                id="confirm-password" 
-                type="password" 
-                required 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={loading}
-                minLength={6}
-              />
+            <div className="space-y-2">
+              <Label htmlFor="signup-confirm-password">Confirm Password</Label>
+              <Input id="signup-confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required disabled={loading} />
             </div>
-            <Button className="w-full font-bold" type="submit" disabled={loading}>
-              {loading ? 'Creating Account...' : 'Sign Up'}
+            <Button type="submit" className="w-full font-bold" disabled={loading}>
+              {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
         </CardContent>
-        <CardFooter className="text-sm justify-center">
-          <p>
-            Already have an account?{' '}
-            <Link href="/login" className="font-bold text-primary hover:underline">
-              Sign in
-            </Link>
-          </p>
+        <CardFooter className="justify-center text-sm">
+          <p>Already approved? <Link href="/login" className="text-primary underline-offset-4 hover:underline">Go to sign in</Link></p>
         </CardFooter>
       </Card>
     </div>

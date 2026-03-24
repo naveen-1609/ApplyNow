@@ -37,9 +37,8 @@ export async function testAdminUserCreation() {
       await setDoc(doc(db, 'users', user.uid), {
         email: adminEmail,
         name: 'Naveen Venkat',
-        subscriptionPlan: 'ADMIN',
-        subscriptionStatus: 'active',
         isAdmin: true,
+        role: 'owner',
         createdAt: new Date(),
         updatedAt: new Date(),
       });
@@ -69,9 +68,8 @@ export async function testAdminUserCreation() {
           await setDoc(doc(db, 'users', user.uid), {
             email: adminEmail,
             name: 'Naveen Venkat',
-            subscriptionPlan: 'ADMIN',
-            subscriptionStatus: 'active',
             isAdmin: true,
+            role: 'owner',
             createdAt: new Date(),
             updatedAt: new Date(),
           });

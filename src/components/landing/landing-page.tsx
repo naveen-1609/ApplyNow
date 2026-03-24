@@ -103,8 +103,8 @@ export function LandingPage() {
             
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
               <Button asChild size="lg" className="text-lg px-10 py-7 font-bold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300">
-                <Link href="/signup">
-                  Get Started Free
+                <Link href="/login">
+                  Open Workspace
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
@@ -114,8 +114,8 @@ export function LandingPage() {
                 </Link>
               </Button>
               <Button asChild variant="secondary" size="lg" className="text-lg px-10 py-7">
-                <Link href="/pricing">
-                  View Pricing
+                <Link href="/dashboard">
+                  Dashboard
                 </Link>
               </Button>
             </div>
@@ -217,8 +217,8 @@ export function LandingPage() {
               
               <div className="mt-12">
                 <Button asChild size="lg" className="text-lg px-10 py-7 font-bold bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg hover:shadow-xl transition-all duration-300">
-                  <Link href="/signup">
-                    Start Your Journey
+                  <Link href="/login">
+                    Open Workspace
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
                 </Button>
@@ -241,14 +241,14 @@ export function LandingPage() {
                     Ready to Get Started?
                   </h3>
                   <p className="text-muted-foreground mb-8 text-lg leading-relaxed">
-                    Join ApplyNow today and take control of your job search with our powerful, AI-driven platform.
+                    Sign in to your personal ApplyNow workspace and continue your job search from one place.
                   </p>
                   <div className="space-y-4">
                     <Button asChild className="w-full font-bold text-lg py-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70">
-                      <Link href="/signup">Create Free Account</Link>
+                      <Link href="/login">Sign In</Link>
                     </Button>
                     <Button asChild variant="outline" className="w-full text-lg py-6 border-2 hover:bg-primary/5">
-                      <Link href="/login">Sign In</Link>
+                      <Link href="/dashboard">Go to Dashboard</Link>
                     </Button>
                   </div>
                 </div>

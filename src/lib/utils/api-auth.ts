@@ -3,6 +3,7 @@
  */
 
 import { auth } from '@/lib/firebase';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * Get the current user's Firebase auth token
@@ -10,6 +11,9 @@ import { auth } from '@/lib/firebase';
  */
 export async function getAuthToken(): Promise<string | null> {
   try {
+    if (!auth) {
+      return null;
+    }
     const currentUser = auth.currentUser;
     if (!currentUser) {
       return null;
@@ -17,7 +21,7 @@ export async function getAuthToken(): Promise<string | null> {
     const token = await currentUser.getIdToken();
     return token;
   } catch (error) {
-    console.error('Error getting auth token:', error);
+    logger.error('Error getting auth token', error);
     return null;
   }
 }
@@ -25,8 +29,8 @@ export async function getAuthToken(): Promise<string | null> {
 /**
  * Create headers with auth token for API requests
  */
-export async function getAuthHeaders(): Promise<HeadersInit> {
-  const token = await getAuthToken();
+export async function getAuthHeaders(tokenOverride?: string | null): Promise<HeadersInit> {
+  const token = tokenOverride ?? await getAuthToken();
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
   };
@@ -37,4 +41,3 @@ export async function getAuthHeaders(): Promise<HeadersInit> {
   
   return headers;
 }
-

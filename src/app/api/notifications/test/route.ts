@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { adminDb, Timestamp } from '@/lib/firebase-admin';
-import { sendReminderEmail, sendSummaryEmail } from '@/lib/services/email';
-import { format } from 'date-fns';
-import sgMail from '@sendgrid/mail';
-
-// Initialize SendGrid
-const sendGridApiKey = process.env.SENDGRID_API_KEY;
-if (sendGridApiKey) {
-  sgMail.setApiKey(sendGridApiKey);
-}
+import { adminDb } from '@/lib/firebase-admin';
+import {
+  getNotificationContextByEmail,
+  getNotificationContextByUserId,
+  normalizeNotificationType,
+  sendNotificationsForContext,
+} from '@/lib/services/notification-service';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * Test endpoint for notifications
@@ -26,7 +24,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const email = searchParams.get('email');
-    const emailType = searchParams.get('type') || 'both';
+    const emailType = normalizeNotificationType(searchParams.get('type'));
     const force = searchParams.get('force') === 'true';
 
     // Get all users or specific user
@@ -73,17 +71,12 @@ export async function GET(request: NextRequest) {
     }> = [];
 
     for (const userDoc of usersSnapshot.docs) {
-      const userData = userDoc.data();
-      // Try multiple ways to get email
-      const userEmail = userData.email || userData.Email || email || null;
+      const context = email
+        ? await getNotificationContextByEmail(email)
+        : await getNotificationContextByUserId(userDoc.id);
       
-      if (!userEmail) {
-        console.warn(`⚠️ User ${userDoc.id} has no email address. User data:`, {
-          userId: userDoc.id,
-          hasEmail: !!userData.email,
-          hasEmailCapital: !!userData.Email,
-          allKeys: Object.keys(userData)
-        });
+      if (!context?.userEmail) {
+        logger.warn(`User ${userDoc.id} has no email address.`);
         results.push({
           userId: userDoc.id,
           email: 'No email',
@@ -93,47 +86,28 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // Get schedule from schedules collection
-      const scheduleSnapshot = await adminDb.collection('schedules')
-        .where('user_id', '==', userDoc.id)
-        .limit(1)
-        .get();
-      
-      const schedule = scheduleSnapshot.empty ? null : scheduleSnapshot.docs[0].data();
-
-      // Get target from targets collection for today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const targetSnapshot = await adminDb.collection('targets')
-        .where('user_id', '==', userDoc.id)
-        .where('current_date', '==', Timestamp.fromDate(today))
-        .limit(1)
-        .get();
-      
-      const target = targetSnapshot.empty ? null : targetSnapshot.docs[0].data();
-
       const result: any = {
-        userId: userDoc.id,
-        email: userEmail,
-        schedule: schedule ? {
-          reminder_time: schedule.reminder_time,
-          summary_time: schedule.summary_time,
-          email_enabled: schedule.email_enabled,
+        userId: context.userId,
+        email: context.userEmail,
+        schedule: context.schedule ? {
+          reminder_time: context.schedule.reminder_time,
+          summary_time: context.schedule.summary_time,
+          email_enabled: context.schedule.email_enabled,
         } : null,
-        target: target ? {
-          daily_target: target.daily_target,
+        target: context.target ? {
+          daily_target: context.target.daily_target,
         } : null,
       };
 
       // Check if email is enabled
-      if (!schedule || !schedule.email_enabled) {
+      if (!context.schedule || !context.schedule.email_enabled) {
         result.reminder = { sent: false, error: 'Email notifications not enabled' };
         result.summary = { sent: false, error: 'Email notifications not enabled' };
         results.push(result);
         continue;
       }
 
-      if (!target) {
+      if (!context.target) {
         result.reminder = { sent: false, error: 'No target found for today' };
         result.summary = { sent: false, error: 'No target found for today' };
         results.push(result);
@@ -142,71 +116,23 @@ export async function GET(request: NextRequest) {
 
       // Send reminder email
       if (emailType === 'reminder' || emailType === 'both') {
-        const shouldSend = force || schedule.reminder_time === currentTime;
+        const shouldSend = force || context.schedule.reminder_time === currentTime;
         if (shouldSend) {
-          try {
-            const sent = await sendReminderEmail(
-              userDoc.id,
-              userEmail,
-              {
-                schedule_id: scheduleSnapshot.docs[0].id,
-                user_id: schedule.user_id,
-                reminder_time: schedule.reminder_time,
-                summary_time: schedule.summary_time,
-                email_enabled: schedule.email_enabled,
-                reminder_email_template: schedule.reminder_email_template,
-                summary_email_template: schedule.summary_email_template,
-              } as any,
-              {
-                target_id: targetSnapshot.docs[0].id,
-                user_id: target.user_id,
-                daily_target: target.daily_target,
-                current_date: target.current_date.toDate(),
-                applications_done: target.applications_done || 0,
-                status_color: target.status_color || 'Green',
-              } as any
-            );
-            result.reminder = { sent, error: sent ? undefined : 'Failed to send' };
-          } catch (error: any) {
-            result.reminder = { sent: false, error: error.message || 'Unknown error' };
-          }
+          const sendResults = await sendNotificationsForContext(context, 'reminder');
+          result.reminder = sendResults.reminder;
         } else {
-          result.reminder = { sent: false, error: `Time mismatch (current: ${currentTime}, scheduled: ${schedule.reminder_time}). Use ?force=true to override.` };
+          result.reminder = { sent: false, error: `Time mismatch (current: ${currentTime}, scheduled: ${context.schedule.reminder_time}). Use ?force=true to override.` };
         }
       }
 
       // Send summary email
       if (emailType === 'summary' || emailType === 'both') {
-        const shouldSend = force || schedule.summary_time === currentTime;
+        const shouldSend = force || context.schedule.summary_time === currentTime;
         if (shouldSend) {
-          try {
-            const sent = await sendSummaryEmail(
-              userDoc.id,
-              userEmail,
-              {
-                schedule_id: scheduleSnapshot.docs[0].id,
-                user_id: schedule.user_id,
-                reminder_time: schedule.reminder_time,
-                summary_time: schedule.summary_time,
-                email_enabled: schedule.email_enabled,
-                reminder_email_template: schedule.reminder_email_template,
-                summary_email_template: schedule.summary_email_template,
-              } as any,
-              {
-                target_id: targetSnapshot.docs[0].id,
-                user_id: target.user_id,
-                daily_target: target.daily_target,
-                current_date: target.current_date.toDate(),
-                applications_done: target.applications_done || 0,
-                status_color: target.status_color || 'Green',
-              } as any
-            );
-            result.summary = { sent, error: sent ? undefined : 'Failed to send' };
-          } catch (error: any) {
-            result.summary = { sent: false, error: error.message || 'Unknown error' };
-          }
+          const sendResults = await sendNotificationsForContext(context, 'summary');
+          result.summary = sendResults.summary;
         } else {
-          result.summary = { sent: false, error: `Time mismatch (current: ${currentTime}, scheduled: ${schedule.summary_time}). Use ?force=true to override.` };
+          result.summary = { sent: false, error: `Time mismatch (current: ${currentTime}, scheduled: ${context.schedule.summary_time}). Use ?force=true to override.` };
         }
       }
 
@@ -240,7 +166,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Test endpoint error:', error);
+    logger.error('Test endpoint error', error);
     return NextResponse.json({
       success: false,
       error: error.message || 'Test failed',
@@ -248,4 +174,3 @@ export async function GET(request: NextRequest) {
     }, { status: 500 });
   }
 }
-
