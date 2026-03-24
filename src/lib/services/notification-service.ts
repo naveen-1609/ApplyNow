@@ -1,5 +1,3 @@
-'use server';
-
 import { adminDb } from '@/lib/firebase-admin';
 import { runtimeTuning } from '@/lib/config/runtime-tuning';
 import { normalizeEmail } from '@/lib/config/app-user';
