@@ -13,12 +13,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-ENVIRONMENT=${1:-production}
 SCALE=${2:-3}
 REGION=${3:-us-east-1}
 
 echo -e "${BLUE}🚀 ApplyNow App Deployment Script${NC}"
-echo -e "${BLUE}Environment: ${ENVIRONMENT}${NC}"
 echo -e "${BLUE}Scale: ${SCALE} replicas${NC}"
 echo -e "${BLUE}Region: ${REGION}${NC}"
 echo ""
@@ -51,9 +49,9 @@ check_prerequisites() {
     fi
     
     if [ ! -f ".env" ]; then
-        print_warning ".env file not found, creating template..."
-        cp .env.example .env 2>/dev/null || echo "Please create .env file with your configuration"
-        print_warning "Please update .env file with your configuration"
+        print_error ".env file not found"
+        print_warning "Create .env from env.example and add your shared Firebase configuration"
+        exit 1
     fi
     
     print_status "Prerequisites check completed"
@@ -62,12 +60,16 @@ check_prerequisites() {
 # Build and deploy app only
 deploy_app() {
     print_status "Building and deploying application..."
+
+    set -a
+    . ./.env
+    set +a
     
     # Build only the app service
-    docker-compose build --no-cache app
+    docker-compose --env-file .env build --no-cache app
     
     # Deploy app with specified scale
-    docker-compose up -d --scale app=${SCALE} app redis nginx
+    docker-compose --env-file .env up -d --scale app=${SCALE} app redis nginx
     
     print_status "App deployment completed"
 }
