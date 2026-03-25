@@ -78,17 +78,21 @@ setup_ssl() {
 deploy_app() {
     print_status "Deploying application..."
     
-    # Copy production environment
     if [ ! -f ".env" ]; then
-        cp env.production .env
-        print_warning "Please update .env file with your actual credentials"
-        print_warning "Edit .env file and run this script again"
+        print_error ".env file not found"
+        print_warning "This deployment now uses .env as the single source of truth"
+        print_warning "Create .env from env.example or env.production, then run this script again"
         exit 1
     fi
+
+    # Load .env so Docker Compose build args and runtime env both come from it.
+    set -a
+    . ./.env
+    set +a
     
     # Build and start services
-    docker-compose -f docker-compose.production.yml build --no-cache
-    docker-compose -f docker-compose.production.yml up -d
+    docker-compose --env-file .env -f docker-compose.production.yml build --no-cache
+    docker-compose --env-file .env -f docker-compose.production.yml up -d
     
     print_status "Application deployed"
 }
